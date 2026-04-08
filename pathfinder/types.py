@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 
-ComponentType = Literal["system", "module", "service", "component", "sub-component"]
 ComponentStatus = Literal["proposed", "active", "deprecated"]
 
 
@@ -42,7 +41,7 @@ class CodeMapping:
 class Component:
     id: str
     name: str
-    type: ComponentType
+    type: str
     status: ComponentStatus
     parent: str | None = None
     spec: str | None = None
@@ -75,7 +74,7 @@ class Standards:
 class IndexEntry:
     id: str
     name: str
-    type: ComponentType
+    type: str
     status: ComponentStatus
     parent: str | None
     children: list[str]

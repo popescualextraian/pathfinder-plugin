@@ -8,6 +8,12 @@ from pathlib import Path
 import yaml
 
 
+DEFAULT_COMPONENT_TYPES = [
+    "system", "module", "service", "component", "sub-component",
+    "library", "infrastructure", "pipeline", "database",
+]
+
+
 def get_pathfinder_dir(project_root: Path) -> Path:
     return Path(project_root) / ".pathfinder"
 
@@ -42,7 +48,7 @@ def init_project(project_root: Path, name: str) -> None:
     pf_dir = get_pathfinder_dir(project_root)
     pf_dir.mkdir(parents=True, exist_ok=True)
     (pf_dir / "components").mkdir(exist_ok=True)
-    save_config(project_root, {"name": name})
+    save_config(project_root, {"name": name, "componentTypes": list(DEFAULT_COMPONENT_TYPES)})
 
 
 def load_config(project_root: Path) -> dict:

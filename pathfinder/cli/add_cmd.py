@@ -1,12 +1,14 @@
 """Add command."""
 import re
 import click
-from pathfinder.core.storage import save_component, load_component
+from pathfinder.core.storage import save_component, load_component, load_config, save_config
 from pathfinder.core.index_builder import build_index
 from pathfinder.cli.utils import resolve_root
 
+
 def name_to_slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
 
 @click.command("add")
 @click.argument("type_", metavar="TYPE")
@@ -17,6 +19,16 @@ def name_to_slug(name: str) -> str:
 def add_cmd(type_: str, name: str, parent: str | None, external: bool, root: str | None):
     """Add a new component."""
     project_root = resolve_root(root)
+
+    config = load_config(project_root)
+    known_types = config.get("componentTypes", [])
+    if known_types and type_ not in known_types:
+        if not click.confirm(f"Type '{type_}' is not in known types. Add it?"):
+            raise click.ClickException(f"Aborted. Known types: {', '.join(known_types)}")
+        known_types.append(type_)
+        config["componentTypes"] = known_types
+        save_config(project_root, config)
+
     slug = name_to_slug(name)
     comp_id = f"{parent}.{slug}" if parent else slug
     if parent:

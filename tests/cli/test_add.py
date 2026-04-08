@@ -34,3 +34,23 @@ def test_adds_external_component(runner, test_dir):
     assert result.exit_code == 0
     comp = load_component(test_dir, "stripe-api")
     assert comp.get("external") is True
+
+
+def test_accepts_predefined_type(runner, test_dir):
+    result = runner.invoke(cli, ["add", "infrastructure", "Redis", "--root", str(test_dir)])
+    assert result.exit_code == 0
+    assert "Added" in result.output
+
+
+def test_prompts_for_unknown_type(runner, test_dir):
+    result = runner.invoke(cli, ["add", "gateway", "API Gateway", "--root", str(test_dir)], input="y\n")
+    assert result.exit_code == 0
+    assert "Added" in result.output
+    from pathfinder.core.storage import load_config
+    config = load_config(test_dir)
+    assert "gateway" in config.get("componentTypes", [])
+
+
+def test_rejects_unknown_type_when_declined(runner, test_dir):
+    result = runner.invoke(cli, ["add", "gateway", "API Gateway", "--root", str(test_dir)], input="n\n")
+    assert result.exit_code != 0
