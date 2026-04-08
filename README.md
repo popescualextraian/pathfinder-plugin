@@ -33,7 +33,7 @@ The architect agent bridges business requirements to component-scoped implementa
 Requires **Python 3.12+**.
 
 ```bash
-pip install git+<repo-url>
+pip install git+https://github.com/popescualextraian/pathfinder-plugin.git
 ```
 
 ## Setting up a project
