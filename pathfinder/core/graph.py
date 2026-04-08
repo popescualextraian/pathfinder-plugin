@@ -8,6 +8,9 @@ def get_dependencies(index: dict, component_id: str) -> list[str]:
     for flow in index["flows"]:
         if flow.get("from") == component_id and flow.get("to"):
             deps.add(flow["to"])
+    comp = index["components"].get(component_id, {})
+    for dep_id in comp.get("dependsOn", []):
+        deps.add(dep_id)
     return list(deps)
 
 def get_dependents(index: dict, component_id: str) -> list[str]:
@@ -15,7 +18,14 @@ def get_dependents(index: dict, component_id: str) -> list[str]:
     for flow in index["flows"]:
         if flow.get("to") == component_id and flow.get("from"):
             dependents.add(flow["from"])
+    for comp in index["components"].values():
+        if component_id in comp.get("dependsOn", []):
+            dependents.add(comp["id"])
     return list(dependents)
+
+def get_structural_deps(index: dict, component_id: str) -> list[str]:
+    comp = index["components"].get(component_id, {})
+    return list(comp.get("dependsOn", []))
 
 def get_flows_for_component(index: dict, component_id: str) -> list[dict]:
     return [f for f in index["flows"] if f.get("from") == component_id or f.get("to") == component_id]
@@ -28,6 +38,10 @@ def trace_flow(index: dict, from_id: str, to_id: str) -> list[str] | None:
         src, dst = flow.get("from"), flow.get("to")
         if src and dst:
             adj.setdefault(src, set()).add(dst)
+    for comp in index["components"].values():
+        for dep_id in comp.get("dependsOn", []):
+            if dep_id in index["components"]:
+                adj.setdefault(comp["id"], set()).add(dep_id)
     visited = {from_id}
     parent: dict[str, str] = {}
     queue = deque([from_id])

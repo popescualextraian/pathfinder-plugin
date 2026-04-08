@@ -50,6 +50,7 @@ class Component:
     data_flows: list[DataFlow] = field(default_factory=list)
     code_mappings: list[CodeMapping] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
+    depends_on: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -81,6 +82,7 @@ class IndexEntry:
     data_flows: list[DataFlow]
     code_mappings: list[CodeMapping]
     file_path: str
+    depends_on: list[str] = field(default_factory=list)
 
 
 @dataclass

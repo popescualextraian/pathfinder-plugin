@@ -8,6 +8,7 @@ from pathfinder.core.index_builder import build_index
 from pathfinder.core.graph import (
     get_dependencies, get_dependents, get_flows_for_component,
     trace_flow, get_components_by_tag, find_component_by_code_path,
+    get_structural_deps,
 )
 
 @pytest.fixture
@@ -29,6 +30,10 @@ def graph_index(test_dir):
         "codeMappings": [{"glob": "src/ledger/**"}], "tags": ["pci-scope"]})
     save_component(test_dir, {"id": "notification", "name": "Notification", "type": "service", "status": "active",
         "dataFlows": [{"from": "payment", "data": "PaymentEvent"}]})
+    save_component(test_dir, {"id": "order", "name": "Order", "type": "service", "status": "active",
+        "dataFlows": [{"to": "payment", "data": "PaymentRequest", "protocol": "REST"}],
+        "codeMappings": [{"glob": "src/order/**"}],
+        "dependsOn": ["notification"]})
     return build_index(test_dir)
 
 class TestGetDependencies:
@@ -63,3 +68,18 @@ class TestFindComponentByCodePath:
         assert find_component_by_code_path(graph_index, "src/payment/gateway/handler.py") == "payment"
     def test_returns_none_for_unmapped(self, graph_index):
         assert find_component_by_code_path(graph_index, "src/unknown/file.py") is None
+
+class TestDependsOn:
+    def test_deps_includes_depends_on(self, graph_index):
+        deps = get_dependencies(graph_index, "order")
+        assert "payment" in deps
+        assert "notification" in deps
+
+    def test_dependents_includes_depends_on(self, graph_index):
+        dependents = get_dependents(graph_index, "notification")
+        assert "order" in dependents
+
+    def test_structural_deps_only(self, graph_index):
+        deps = get_structural_deps(graph_index, "order")
+        assert "notification" in deps
+        assert "payment" not in deps

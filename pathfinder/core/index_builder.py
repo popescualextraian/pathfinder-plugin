@@ -31,6 +31,7 @@ def build_index(project_root: Path) -> dict:
             "tags": comp.get("tags", []),
             "dataFlows": comp.get("dataFlows", []),
             "codeMappings": comp.get("codeMappings", []),
+            "dependsOn": comp.get("dependsOn", []),
             "filePath": str(get_component_dir(project_root, comp_id) / "_component.yaml"),
         }
 
@@ -114,6 +115,14 @@ def validate_index(project_root: Path) -> list[dict]:
                 issues.append({
                     "component_id": comp["id"],
                     "issue": f"Data flow references unknown component '{flow_from}'",
+                    "severity": "error",
+                })
+
+        for dep_id in comp.get("dependsOn", []):
+            if dep_id not in index["components"]:
+                issues.append({
+                    "component_id": comp["id"],
+                    "issue": f"dependsOn references unknown component '{dep_id}'",
                     "severity": "error",
                 })
 

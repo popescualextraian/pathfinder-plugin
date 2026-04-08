@@ -77,3 +77,19 @@ def test_preserves_code_mappings_and_tags(test_dir):
     index = build_index(test_dir)
     assert len(index["components"]["payment"]["codeMappings"]) == 1
     assert "pci-scope" in index["components"]["payment"]["tags"]
+
+
+def test_indexes_depends_on(test_dir):
+    save_component(test_dir, {"id": "frontend", "name": "Frontend", "type": "module", "status": "active",
+        "dependsOn": ["design-system"]})
+    save_component(test_dir, {"id": "design-system", "name": "Design System", "type": "library", "status": "active"})
+    index = build_index(test_dir)
+    assert "design-system" in index["components"]["frontend"]["dependsOn"]
+
+
+def test_validates_broken_depends_on(test_dir):
+    from pathfinder.core.index_builder import validate_index
+    save_component(test_dir, {"id": "orphan", "name": "Orphan", "type": "service", "status": "active",
+        "dependsOn": ["ghost"]})
+    issues = validate_index(test_dir)
+    assert any("ghost" in i["issue"] for i in issues)
