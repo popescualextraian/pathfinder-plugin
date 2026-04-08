@@ -43,6 +43,13 @@ def test_reports_broken_flow_target(runner, test_dir):
     assert "ghost" in result.output
 
 
+def test_reports_broken_depends_on_target(runner, test_dir):
+    save_component(test_dir, {"id": "app", "name": "App", "type": "module", "status": "active",
+        "dependsOn": ["ghost"]})
+    result = runner.invoke(cli, ["validate", "--root", str(test_dir)])
+    assert "ghost" in result.output
+
+
 def test_ci_exits_with_code_1(runner, test_dir):
     save_component(test_dir, {"id": "broken", "name": "Broken", "type": "service", "status": "active", "parent": "missing"})
     result = runner.invoke(cli, ["validate", "--ci", "--root", str(test_dir)])
