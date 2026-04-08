@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /c/WSAGNENG/path-finder status)",
+      "Bash(find \"C:/WSAGNENG/path-finder/.superpowers/brainstorm/\" -name \"server-info\" -exec cat {} \\\\;)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash([ -f \"C:/WSAGNENG/path-finder/$f\" ])",
+      "Bash(ls C:/WSAGNENG/path-finder/skills/*/SKILL.md C:/WSAGNENG/path-finder/agents/*.md)",
+      "Bash(ls skills/*/SKILL.md)",
+      "Bash(ls agents/*.md)",
+      "Bash(wc -l /c/WSAGNENG/path-finder/pathfinder/cli/*.py)",
+      "Bash(pytest tests/core/test_graph.py tests/core/test_index_builder.py -v --tb=short)",
+      "Bash(\"/c/Program Files/Python313/python.exe\" -m pip install pytest -q)",
+      "Bash(\"/c/Program Files/Python313/python.exe\" -m pip install -e \"C:/WSAGNENG/path-finder/.[dev]\" -q)",
+      "Bash(\"/c/Program Files/Python313/python.exe\" -m pytest C:/WSAGNENG/path-finder/tests/core/test_graph.py C:/WSAGNENG/path-finder/tests/core/test_index_builder.py -v --tb=short)",
+      "Bash(pytest:*)",
+      "Bash(C:/Users/popesa3/AppData/Roaming/Python/Python313/Scripts/pytest.exe tests/cli/test_depend.py -v)",
+      "Bash(.venv/Scripts/pip install:*)",
+      "Bash(.venv/Scripts/python -m pytest tests/cli/test_add.py tests/cli/test_drift.py -v --tb=short)",
+      "Bash(/c/WSAGNENG/path-finder/.venv/bin/pip install:*)",
+      "Bash(/c/WSAGNENG/path-finder/.venv/bin/python -m pytest /c/WSAGNENG/path-finder/tests/cli/test_add.py /c/WSAGNENG/path-finder/tests/cli/test_drift.py -v --tb=short)",
+      "Bash(/c/WSAGNENG/path-finder/.venv/Scripts/python -m ensurepip)",
+      "Bash(/c/WSAGNENG/path-finder/.venv/Scripts/python -m pip install pytest)",
+      "Bash(/c/WSAGNENG/path-finder/.venv/Scripts/python -m pip install -e \".[dev]\" -q)",
+      "Bash(/c/WSAGNENG/path-finder/.venv/Scripts/python:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
