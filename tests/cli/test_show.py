@@ -4,6 +4,7 @@ import pytest
 from click.testing import CliRunner
 from pathfinder.core.storage import init_project, save_component
 from pathfinder.cli.show_cmd import show_cmd, children_cmd
+from pathfinder.cli.main import cli
 import click
 
 @pytest.fixture
@@ -53,3 +54,19 @@ def test_shows_contract_version(runner, test_dir):
     grp.add_command(show_cmd)
     result = runner.invoke(grp, ["show", "checkout", "--contracts", "--root", str(test_dir)])
     assert "2.0" in result.output
+
+
+def test_shows_depends_on(runner, test_dir):
+    save_component(test_dir, {"id": "lib", "name": "Lib", "type": "library", "status": "active"})
+    save_component(test_dir, {"id": "app", "name": "App", "type": "module", "status": "active",
+        "dependsOn": ["lib"]})
+    result = runner.invoke(cli, ["show", "app", "--root", str(test_dir)])
+    assert "lib" in result.output
+    assert "Depends on" in result.output
+
+
+def test_shows_external_marker(runner, test_dir):
+    save_component(test_dir, {"id": "stripe", "name": "Stripe", "type": "service", "status": "active",
+        "external": True})
+    result = runner.invoke(cli, ["show", "stripe", "--root", str(test_dir)])
+    assert "external" in result.output.lower()

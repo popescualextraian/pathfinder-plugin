@@ -30,6 +30,10 @@ def show_cmd(id_: str, contracts: bool, root: str | None):
     click.echo(f"ID: {component['id']}")
     if component.get("parent"):
         click.echo(f"Parent: {component['parent']}")
+    if component.get("external"):
+        click.echo("External: yes")
+    if component.get("dependsOn"):
+        click.echo(f"Depends on: {', '.join(component['dependsOn'])}")
     if component.get("tags"):
         click.echo(f"Tags: {', '.join(component['tags'])}")
     if component.get("spec"):
