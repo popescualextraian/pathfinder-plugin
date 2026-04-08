@@ -20,12 +20,13 @@ from pathfinder.cli.standards_cmd import standards_cmd
 from pathfinder.cli.export_cmd import export_cmd
 from pathfinder.cli.depend_cmd import depend_cmd
 from pathfinder.cli.contract_cmd import contract_add_cmd, contract_remove_cmd
+from pathfinder.cli.install_cmd import install_cmd
 
 
 @click.group()
 @click.version_option(version="0.1.0")
 def cli():
-    """Architecture-first component library CLI."""
+    """Pathfinder Plugin — architecture-first skills and agent for AI-driven development."""
     pass
 
 
@@ -54,6 +55,7 @@ cli.add_command(export_cmd)
 cli.add_command(depend_cmd)
 cli.add_command(contract_add_cmd)
 cli.add_command(contract_remove_cmd)
+cli.add_command(install_cmd)
 
 
 if __name__ == "__main__":

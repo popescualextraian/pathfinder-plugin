@@ -26,7 +26,14 @@
       "Bash(/c/WSAGNENG/path-finder/.venv/Scripts/python -m pip install pytest)",
       "Bash(/c/WSAGNENG/path-finder/.venv/Scripts/python -m pip install -e \".[dev]\" -q)",
       "Bash(/c/WSAGNENG/path-finder/.venv/Scripts/python:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(ls skills/*.md agents/*.md)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(cp -r C:/WSAGNENG/path-finder/skills C:/WSAGNENG/path-finder/pathfinder/skills)",
+      "Bash(cp -r C:/WSAGNENG/path-finder/agents C:/WSAGNENG/path-finder/pathfinder/agents)",
+      "Bash(.venv/Scripts/python.exe -m pip install -e \".[dev]\")",
+      "Bash(\"C:/Program Files/Python313/python.exe\" -m pytest tests/cli/test_install.py -v --tb=short)",
+      "Bash(\"C:/Program Files/Python313/python.exe\" -m pytest tests/ -v --tb=short)"
     ]
   }
 }

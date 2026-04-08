@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "pathfinder"
 version = "0.1.0"
-description = "Architecture-first component library CLI"
+description = "Pathfinder Plugin — architecture-first skills and agent for AI-driven development"
 requires-python = ">=3.12"
 dependencies = [
     "click>=8.1",
@@ -19,6 +19,13 @@ pathfinder = "pathfinder.cli.main:cli"
 dev = [
     "pytest>=8.0",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["pathfinder"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"pathfinder/skills" = "pathfinder/skills"
+"pathfinder/agents" = "pathfinder/agents"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
