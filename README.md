@@ -33,7 +33,7 @@ The architect agent bridges business requirements to component-scoped implementa
 Requires **Python 3.12+**.
 
 ```bash
-pip install git+https://github.com/popescualextraian/pathfinder-plugin.git
+pip install --no-cache-dir --force-reinstall git+https://github.com/popescualextraian/pathfinder-plugin.git
 ```
 
 ## Setting up a project
@@ -48,26 +48,27 @@ pathfinder install
 pathfinder init --name my-project
 ```
 
-`pathfinder install` copies skills into `skills/` and the architect agent into `agents/`. It also prints a CLAUDE.md snippet to add to your project so Claude Code discovers the skills automatically.
+`pathfinder install` copies skills into `.claude/skills/` and the architect agent into `.claude/agents/`. It also prints a CLAUDE.md snippet to add to your project so Claude Code discovers the skills automatically.
 
 ### Custom directories
 
 ```bash
-pathfinder install --skills-dir .claude/skills --agents-dir .claude/agents
+pathfinder install --skills-dir custom/skills --agents-dir custom/agents
 ```
 
 ### What gets installed
 
 ```
 your-project/
-  skills/
-    pathfinder-discover/SKILL.md
-    pathfinder-define/SKILL.md
-    pathfinder-navigate/SKILL.md
-    pathfinder-implement/SKILL.md
-    pathfinder-check/SKILL.md
-  agents/
-    system-architect.md
+  .claude/
+    skills/
+      pathfinder-discover/SKILL.md
+      pathfinder-define/SKILL.md
+      pathfinder-navigate/SKILL.md
+      pathfinder-implement/SKILL.md
+      pathfinder-check/SKILL.md
+    agents/
+      system-architect.md
   .pathfinder/                    # Created by pathfinder init
     config.yaml
     components/
