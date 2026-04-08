@@ -28,3 +28,9 @@ def test_adds_child_with_parent(runner, test_dir):
     runner.invoke(cli, ["add", "module", "Payment", "--parent", "system", "--root", str(test_dir)])
     comp = load_component(test_dir, "system.payment")
     assert comp["parent"] == "system"
+
+def test_adds_external_component(runner, test_dir):
+    result = runner.invoke(cli, ["add", "service", "Stripe API", "--external", "--root", str(test_dir)])
+    assert result.exit_code == 0
+    comp = load_component(test_dir, "stripe-api")
+    assert comp.get("external") is True

@@ -12,8 +12,9 @@ def name_to_slug(name: str) -> str:
 @click.argument("type_", metavar="TYPE")
 @click.argument("name")
 @click.option("--parent", default=None, help="Parent component ID")
+@click.option("--external", is_flag=True, help="Mark as external component")
 @click.option("--root", default=None, help="Project root directory")
-def add_cmd(type_: str, name: str, parent: str | None, root: str | None):
+def add_cmd(type_: str, name: str, parent: str | None, external: bool, root: str | None):
     """Add a new component."""
     project_root = resolve_root(root)
     slug = name_to_slug(name)
@@ -23,6 +24,9 @@ def add_cmd(type_: str, name: str, parent: str | None, root: str | None):
             load_component(project_root, parent)
         except FileNotFoundError:
             raise click.ClickException(f"Parent component '{parent}' not found")
-    save_component(project_root, {"id": comp_id, "name": name, "type": type_, "status": "active", "parent": parent})
+    comp = {"id": comp_id, "name": name, "type": type_, "status": "active", "parent": parent}
+    if external:
+        comp["external"] = True
+    save_component(project_root, comp)
     build_index(project_root)
     click.echo(f"Added {type_} '{name}' ({comp_id})")

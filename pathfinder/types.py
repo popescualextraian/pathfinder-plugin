@@ -51,6 +51,7 @@ class Component:
     code_mappings: list[CodeMapping] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
     depends_on: list[str] = field(default_factory=list)
+    external: bool = False
 
 
 @dataclass
@@ -83,6 +84,7 @@ class IndexEntry:
     code_mappings: list[CodeMapping]
     file_path: str
     depends_on: list[str] = field(default_factory=list)
+    external: bool = False
 
 
 @dataclass

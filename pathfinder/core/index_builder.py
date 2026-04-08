@@ -32,6 +32,7 @@ def build_index(project_root: Path) -> dict:
             "dataFlows": comp.get("dataFlows", []),
             "codeMappings": comp.get("codeMappings", []),
             "dependsOn": comp.get("dependsOn", []),
+            "external": comp.get("external", False),
             "filePath": str(get_component_dir(project_root, comp_id) / "_component.yaml"),
         }
 
