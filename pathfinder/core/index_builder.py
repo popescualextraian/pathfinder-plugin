@@ -49,6 +49,7 @@ def build_index(project_root: Path) -> dict:
                 "to": flow.get("to"),
                 "data": flow["data"],
                 "protocol": flow.get("protocol"),
+                "pattern": flow.get("pattern"),
             })
 
     index = {

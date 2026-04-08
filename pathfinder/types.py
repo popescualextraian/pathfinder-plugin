@@ -15,6 +15,7 @@ class Contract:
     format: str
     source: str | None = None
     target: str | None = None
+    version: str | None = None
 
 
 @dataclass
@@ -29,6 +30,7 @@ class DataFlow:
     from_id: str | None = None
     to: str | None = None
     protocol: str | None = None
+    pattern: str | None = None
 
 
 @dataclass
