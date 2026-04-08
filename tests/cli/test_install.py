@@ -21,7 +21,7 @@ def runner():
 def test_install_copies_skills(runner, test_dir):
     result = runner.invoke(cli, ["install", "--root", str(test_dir)])
     assert result.exit_code == 0
-    skills_dir = test_dir / "skills"
+    skills_dir = test_dir / ".claude" / "skills"
     assert skills_dir.exists()
     expected = [
         "pathfinder-check",
@@ -37,25 +37,25 @@ def test_install_copies_skills(runner, test_dir):
 def test_install_copies_agent(runner, test_dir):
     result = runner.invoke(cli, ["install", "--root", str(test_dir)])
     assert result.exit_code == 0
-    assert (test_dir / "agents" / "system-architect.md").exists()
+    assert (test_dir / ".claude" / "agents" / "system-architect.md").exists()
 
 
 def test_install_custom_dirs(runner, test_dir):
     result = runner.invoke(cli, [
         "install", "--root", str(test_dir),
-        "--skills-dir", ".claude/skills",
-        "--agents-dir", ".claude/agents",
+        "--skills-dir", "custom/skills",
+        "--agents-dir", "custom/agents",
     ])
     assert result.exit_code == 0
-    assert (test_dir / ".claude" / "skills" / "pathfinder-discover" / "SKILL.md").exists()
-    assert (test_dir / ".claude" / "agents" / "system-architect.md").exists()
+    assert (test_dir / "custom" / "skills" / "pathfinder-discover" / "SKILL.md").exists()
+    assert (test_dir / "custom" / "agents" / "system-architect.md").exists()
 
 
 def test_install_overwrites_existing_skills(runner, test_dir):
     # First install
     runner.invoke(cli, ["install", "--root", str(test_dir)])
     # Write a marker into a skill file
-    marker_file = test_dir / "skills" / "pathfinder-check" / "SKILL.md"
+    marker_file = test_dir / ".claude" / "skills" / "pathfinder-check" / "SKILL.md"
     marker_file.write_text("old content")
     # Second install should overwrite
     result = runner.invoke(cli, ["install", "--root", str(test_dir)])

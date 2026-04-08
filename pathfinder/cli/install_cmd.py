@@ -15,8 +15,8 @@ def _package_data_dir() -> Path:
 
 @click.command("install")
 @click.option("--root", default=None, help="Target project root directory")
-@click.option("--skills-dir", default="skills", help="Destination directory for skills (default: skills/)")
-@click.option("--agents-dir", default="agents", help="Destination directory for agents (default: agents/)")
+@click.option("--skills-dir", default=".claude/skills", help="Destination directory for skills (default: .claude/skills/)")
+@click.option("--agents-dir", default=".claude/agents", help="Destination directory for agents (default: .claude/agents/)")
 def install_cmd(root: str | None, skills_dir: str, agents_dir: str):
     """Install pathfinder skills and agent into a project."""
     project_root = Path(resolve_root(root))
@@ -72,7 +72,7 @@ def install_cmd(root: str | None, skills_dir: str, agents_dir: str):
     click.echo("This project uses pathfinder for architecture-driven development.")
     click.echo("The `pathfinder` CLI must be installed and on PATH (`pip install pathfinder`).\n")
     click.echo("### Skills\n")
-    click.echo(f"Skills are in `{skills_dir}/` — Claude Code will discover them automatically.")
+    click.echo(f"Skills are in `{skills_dir}/` \u2014 Claude Code discovers them automatically.")
     click.echo("- **pathfinder-discover** — onboard a codebase into pathfinder")
     click.echo("- **pathfinder-define** — decompose requirements into components and flows")
     click.echo("- **pathfinder-navigate** — load relevant architecture context for a task")
