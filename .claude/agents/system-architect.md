@@ -52,7 +52,7 @@ Use `pathfinder-navigate` to load the relevant slice of the architecture:
 
 ```bash
 pathfinder search "<keywords from the requirement>"
-pathfinder show <relevant-component>
+pathfinder info <relevant-component>
 pathfinder deps <relevant-component>
 pathfinder dependents <relevant-component>
 pathfinder flows <relevant-component>
@@ -101,32 +101,25 @@ For each change, specify:
 
 ### Step 5: Define contracts for new/changed interfaces
 
-Use `pathfinder-define` to formalize contract changes. To update an existing contract, remove the old one and add the replacement:
+Use `pathfinder-define` to formalize contract changes:
 
 ```bash
-pathfinder contract-remove <component-id> --name "<old-name>"
-pathfinder contract-add <component-id> --input --name "<name>" --format "<updated format>"
+pathfinder set <component-id> contract.inputs "<updated inputs>"
+pathfinder set <component-id> contract.outputs "<updated outputs>"
 ```
 
-For new components, create the component then add its contracts:
+For new components:
 
 ```bash
-pathfinder add <TYPE> "<Name>" [--parent <parent-id>] --spec "<description>"
-pathfinder contract-add <new-component-id> --input --name "<name>" --format "<inputs>"
-pathfinder contract-add <new-component-id> --output --name "<name>" --format "<outputs>"
+pathfinder add <new-component> --type <type> --desc "<description>"
+pathfinder set <new-component> contract.inputs "<inputs>"
+pathfinder set <new-component> contract.outputs "<outputs>"
 ```
 
-For new flows, add each hop separately:
+For new flows:
 
 ```bash
-pathfinder flow-add <component-a> <component-b> --data "<what flows at this hop>"
-pathfinder flow-add <component-b> <component-c> --data "<what flows at this hop>"
-```
-
-To add a dependency between components:
-
-```bash
-pathfinder depend <component-id> <target-id>
+pathfinder flow-add <flow-name> <component-a> -> <component-b> -> <component-c> "<description>"
 ```
 
 ### Step 6: Produce implementation tasks
@@ -136,9 +129,9 @@ Convert the architectural changes into concrete, component-scoped tasks. Each ta
 ```
 == Task ==
 
-Component:    core.discounts
+Component:    core/discounts
 Action:       Implement new component
-Priority:     1 (implement before core.orders changes)
+Priority:     1 (implement before core/orders changes)
 Depends on:   none (leaf component)
 
 Description:
@@ -151,7 +144,7 @@ Contract:
           | DiscountError { code: "INVALID_CODE" | "EXPIRED" | "MIN_NOT_MET" }
 
 Standards:
-  - Follow existing validation patterns from core.orders
+  - Follow existing validation patterns from core/orders
   - Use the project's standard error response format
 
 Acceptance criteria:
@@ -179,16 +172,16 @@ Order tasks by dependency. The rule is simple: **a component cannot be implement
 Implementation order:
 
   Phase 1 (parallel -- no dependencies on new work):
-    Task 1: core.discounts       -- new leaf component
-    Task 2: data.orders migration -- add discount fields
+    Task 1: core/discounts       -- new leaf component
+    Task 2: data/orders migration -- add discount fields
 
   Phase 2 (depends on Phase 1):
-    Task 3: core.orders           -- integrate discount logic
-    Task 4: core.payments         -- handle discounted amounts
+    Task 3: core/orders           -- integrate discount logic
+    Task 4: core/payments         -- handle discounted amounts
 
   Phase 3 (depends on Phase 2):
-    Task 5: api.gateway           -- expose discount code in API
-    Task 6: ui.storefront         -- add discount code input field
+    Task 5: api/gateway           -- expose discount code in API
+    Task 6: ui/storefront         -- add discount code input field
 ```
 
 Tasks in the same phase can be implemented in parallel by different developers or agents.
@@ -218,11 +211,11 @@ Iterate until the user approves.
 - Task: Implement search
 
 **Good decomposition** (component-oriented):
-- Task 1: Create `core.search` component -- search index management and query execution
-- Task 2: Update `data.products` -- add search index sync on product changes
-- Task 3: Update `api.gateway` -- add `GET /search?q=` endpoint
-- Task 4: Update `ui.storefront` -- add search bar and results page
-- Flow: `ui.storefront -> api.gateway -> core.search -> data.products`
+- Task 1: Create `core/search` component -- search index management and query execution
+- Task 2: Update `data/products` -- add search index sync on product changes
+- Task 3: Update `api/gateway` -- add `GET /search?q=` endpoint
+- Task 4: Update `ui/storefront` -- add search bar and results page
+- Flow: `search-products: ui/storefront -> api/gateway -> core/search -> data/products`
 
 ### Example 2: "Fix double-charge bug"
 
@@ -230,11 +223,11 @@ Iterate until the user approves.
 - Task: Add idempotency check to payment
 
 **Good decomposition** (contract-oriented):
-- Task 1: Update `core.payments` contract -- add idempotency key to PaymentRequest
-- Task 2: Update `core.payments` implementation -- deduplicate by idempotency key
-- Task 3: Update `core.orders` -- generate and pass idempotency key when calling payments
-- Task 4: Update `infra.payment-gw` -- forward idempotency key to external provider
-- Impact: No contract change for api.gateway or ui.storefront (idempotency is internal)
+- Task 1: Update `core/payments` contract -- add idempotency key to PaymentRequest
+- Task 2: Update `core/payments` implementation -- deduplicate by idempotency key
+- Task 3: Update `core/orders` -- generate and pass idempotency key when calling payments
+- Task 4: Update `infra/payment-gw` -- forward idempotency key to external provider
+- Impact: No contract change for api/gateway or ui/storefront (idempotency is internal)
 
 ### Example 3: "Extract payment logic" (technical debt)
 
@@ -242,11 +235,11 @@ Iterate until the user approves.
 - Task: Move payment functions from orders.py to payments.py
 
 **Good decomposition** (architecture-oriented):
-- Task 1: Create `core.payments` component with explicit contract
-- Task 2: Move payment logic from `core.orders` to `core.payments`
-- Task 3: Update `core.orders` to depend on `core.payments` via contract
-- Task 4: Add payment-processing flow: `core.orders -> core.payments -> infra.payment-gw`
-- Task 5: Update `core.orders` contract to remove payment-related outputs
+- Task 1: Create `core/payments` component with explicit contract
+- Task 2: Move payment logic from `core/orders` to `core/payments`
+- Task 3: Update `core/orders` to depend on `core/payments` via contract
+- Task 4: Add `payment-processing` flow: `core/orders -> core/payments -> infra/payment-gw`
+- Task 5: Update `core/orders` contract to remove payment-related outputs
 - Run `pathfinder-check` health mode after to verify clean extraction
 
 ---
@@ -266,21 +259,6 @@ Iterate until the user approves.
 6. **Leaf-first implementation** -- always implement leaf components (those with no unimplemented dependencies) before components that depend on them.
 
 7. **Verify, do not assume** -- always run `pathfinder-check` impact analysis before and `pathfinder-check` health mode after. Architecture decisions must be grounded in the actual component graph.
-
----
-
-## When in doubt, ask
-
-- **Component boundary placement is unclear** -- present two or three decompositions with tradeoffs and ask the user which fits their mental model
-- **A new component vs extending an existing one is a close call** -- present both options and ask; the user knows the team's ownership and change patterns
-- **A contract change could be additive or breaking** -- describe the tradeoff and ask the user to decide before proceeding
-- **Sequencing is ambiguous** (two tasks could go in either order) -- ask the user for any constraints or preferences
-- **A component classification is unclear** (external vs internal, service vs module) -- ask; do not guess
-- **The blast radius from impact analysis is unexpectedly large** -- pause and ask the user whether to proceed or decompose the change further
-- **A CLI command fails or produces unexpected output** -- show the exact error and ask the user before continuing
-- **The requirement is ambiguous** -- ask clarifying questions before decomposing; decomposing the wrong requirement wastes everyone's time
-
-Never silently guess and proceed when the architecture could reasonably go either way.
 
 ---
 

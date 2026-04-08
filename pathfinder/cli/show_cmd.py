@@ -1,16 +1,27 @@
 """Show and children commands."""
 import click
-from pathfinder.core.storage import load_component
+from pathfinder.core.storage import load_component, resolve_component_id
 from pathfinder.core.index_builder import build_index
-from pathfinder.cli.utils import resolve_root
+from pathfinder.cli.utils import resolve_root, resolve_index_id
+from pathfinder.cli.list_cmd import print_tree
 
 @click.command("show")
-@click.argument("id_")
+@click.argument("id_", required=False, default=None)
 @click.option("--contracts", is_flag=True, help="Show only contracts")
 @click.option("--root", default=None, help="Project root directory")
-def show_cmd(id_: str, contracts: bool, root: str | None):
-    """Show component details."""
+def show_cmd(id_: str | None, contracts: bool, root: str | None):
+    """Show component details, or list the component tree if no ID given."""
     project_root = resolve_root(root)
+    if id_ is None and not contracts:
+        index = build_index(project_root)
+        roots = [c for c in index["components"].values() if not c.get("parent")]
+        if not roots:
+            click.echo("No components defined. Use 'pathfinder add' to create one.")
+            return
+        for i, root_comp in enumerate(roots):
+            print_tree(index, root_comp["id"], "", i == len(roots) - 1, 0, 0)
+        return
+    id_ = resolve_component_id(project_root, id_)
     component = load_component(project_root, id_)
     if contracts:
         click.echo(f"Contracts for {component['name']} ({component['id']}):")
@@ -45,7 +56,7 @@ def show_cmd(id_: str, contracts: bool, root: str | None):
     for out in c.get("outputs", []):
         click.echo(f"\nContract (output): {out['name']}")
     for flow in component.get("dataFlows", []):
-        direction = f"→ {flow['to']}" if flow.get("to") else f"← {flow.get('from')}"
+        direction = f"-> {flow['to']}" if flow.get("to") else f"<- {flow.get('from')}"
         protocol = f" [{flow['protocol']}]" if flow.get("protocol") else ""
         click.echo(f"\nFlow: {direction}: {flow['data']}{protocol}")
     for mapping in component.get("codeMappings", []):
@@ -59,9 +70,8 @@ def children_cmd(id_: str, root: str | None):
     """List direct children of a component."""
     project_root = resolve_root(root)
     index = build_index(project_root)
-    entry = index["components"].get(id_)
-    if not entry:
-        raise click.ClickException(f"Component '{id_}' not found")
+    id_ = resolve_index_id(index, id_)
+    entry = index["components"][id_]
     children = entry.get("children", [])
     if not children:
         click.echo(f"{entry['name']} has no children")

@@ -2,7 +2,7 @@
 
 import click
 
-from pathfinder.core.storage import load_component, save_component
+from pathfinder.core.storage import load_component, save_component, resolve_component_id
 from pathfinder.core.index_builder import build_index
 from pathfinder.cli.utils import resolve_root
 
@@ -24,6 +24,7 @@ def contract_add_cmd(id_: str, is_input: bool, is_output: bool, name: str, fmt: 
         raise click.ClickException("Specify --input or --output")
 
     project_root = resolve_root(root)
+    id_ = resolve_component_id(project_root, id_)
     component = load_component(project_root, id_)
     contracts = component.get("contracts", {"inputs": [], "outputs": []})
     if "inputs" not in contracts:
@@ -59,6 +60,7 @@ def contract_add_cmd(id_: str, is_input: bool, is_output: bool, name: str, fmt: 
 def contract_remove_cmd(id_: str, name: str, root: str | None):
     """Remove a contract from a component."""
     project_root = resolve_root(root)
+    id_ = resolve_component_id(project_root, id_)
     component = load_component(project_root, id_)
     contracts = component.get("contracts", {"inputs": [], "outputs": []})
 

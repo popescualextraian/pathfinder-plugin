@@ -36,7 +36,7 @@ description: Brownfield discovery — analyze an existing codebase and produce a
 
 ```bash
 cd <project-root>
-pathfinder init --name <project-name>
+pathfinder init <project-name>
 ```
 
 This creates the `.pathfinder/` directory. If it already exists, skip this step.
@@ -129,23 +129,7 @@ Data flows identified:
   core/orders -> infra/external -- Orders call external payment service
 ```
 
-**Step 7 -- Identify external systems**
-
-Before creating components, classify each system the application interacts with:
-
-**Internal vs External classification:**
-- If your team deploys or manages it (even via Terraform or CDK) -> internal infrastructure component
-- If it's a third-party API or SaaS you call but do not manage -> external
-- If it's another team's service within your org -> usually external (you do not control it)
-
-Examples:
-- A DynamoDB table managed via your Terraform -> `pathfinder add infrastructure "DynamoDB" --parent infra --spec "Order data store, managed via Terraform"`
-- A Stripe payment gateway you call but do not operate -> `pathfinder add service "Stripe" --external --spec "Payment processing provider"`
-- A partner team's internal API -> `pathfinder add service "Partner Auth API" --external --spec "Authentication service owned by platform team"`
-
-If classification is unclear, ask the user before proceeding. Do not silently assume.
-
-**Step 8 -- User validation**
+**Step 7 -- User validation**
 
 Ask the user:
 
@@ -154,7 +138,6 @@ Ask the user:
 > 2. Are there areas of the codebase I missed?
 > 3. Do the data flows look correct?
 > 4. Are the component names clear and meaningful?
-> 5. Have I correctly classified external vs internal systems?
 
 Incorporate their feedback before proceeding. This is iterative -- go back and forth until the user confirms the hierarchy.
 
@@ -162,12 +145,12 @@ Incorporate their feedback before proceeding. This is iterative -- go back and f
 
 ### Phase 3: Create components in pathfinder
 
-**Step 9 -- Create top-level components**
+**Step 8 -- Create top-level components**
 
 For each top-level component:
 
 ```bash
-pathfinder add <TYPE> "<Name>" [--spec "<description>"]
+pathfinder add <component-id> --type <type> --desc "<description>"
 ```
 
 Component types to use:
@@ -177,69 +160,51 @@ Component types to use:
 - `api` -- an API surface (REST, GraphQL, gRPC)
 - `store` -- a data store (database, cache, queue)
 - `ui` -- a user interface component or page
-- `infrastructure` -- cloud or managed infrastructure resources
 
 Example:
 
 ```bash
-pathfinder add api "API" --spec "HTTP API layer handling all inbound requests"
-pathfinder add module "Core" --spec "Core business logic and domain rules"
-pathfinder add module "Data" --spec "Data access layer and persistence"
-pathfinder add module "Infra" --spec "Infrastructure, configuration, and external integrations"
+pathfinder add api --type api --desc "HTTP API layer handling all inbound requests"
+pathfinder add core --type module --desc "Core business logic and domain rules"
+pathfinder add data --type module --desc "Data access layer and persistence"
+pathfinder add infra --type module --desc "Infrastructure, configuration, and external integrations"
 ```
 
-The ID is auto-generated from the name (slugified). The above creates components with IDs `api`, `core`, `data`, `infra`.
+**Step 9 -- Create child components**
 
-**Step 10 -- Create child components**
-
-For each child component, pass `--parent` to nest it:
+For each child component, create it and set its parent:
 
 ```bash
-pathfinder add module "Routes" --parent api --spec "Route definitions and request handlers"
-pathfinder add module "Middleware" --parent api --spec "Cross-cutting middleware: auth, logging, errors"
-pathfinder add module "Users" --parent core --spec "User management domain"
-pathfinder add module "Orders" --parent core --spec "Order processing domain"
+pathfinder add api/routes --type module --desc "Route definitions and request handlers"
+pathfinder set api/routes parent api
+
+pathfinder add api/middleware --type module --desc "Cross-cutting middleware: auth, logging, errors"
+pathfinder set api/middleware parent api
 ```
 
-This creates `api.routes`, `api.middleware`, `core.users`, `core.orders` etc. (IDs are dot-notation).
+Repeat for all components in the hierarchy.
 
-**Step 11 -- Add external components**
+**Step 10 -- Set contracts on components**
 
-For each external system identified in Step 7:
+For components that have clear inputs and outputs, define contracts:
 
 ```bash
-pathfinder add service "Stripe" --external --spec "Payment processing provider, called via REST API"
-pathfinder add service "SendGrid" --external --spec "Transactional email provider"
+pathfinder set api/routes contract.inputs "HTTP requests (method, path, headers, body)"
+pathfinder set api/routes contract.outputs "HTTP responses (status, headers, JSON body)"
+
+pathfinder set core/users contract.inputs "User commands: create, update, delete, query"
+pathfinder set core/users contract.outputs "User entities, validation errors"
 ```
 
-For internal infrastructure managed by your team:
-
-```bash
-pathfinder add infrastructure "DynamoDB Orders" --parent infra --spec "Order data store, managed via Terraform"
-pathfinder add infrastructure "SQS Notifications Queue" --parent infra --spec "Async notification queue, managed via CDK"
-```
-
-**Step 12 -- Set contracts on components**
-
-For components that have clear inputs and outputs, define contracts using `contract-add`:
-
-```bash
-pathfinder contract-add api.routes --input --name "HTTP Request" --format "method, path, headers, body"
-pathfinder contract-add api.routes --output --name "HTTP Response" --format "status, headers, JSON body"
-
-pathfinder contract-add core.users --input --name "User Command" --format "create | update | delete | query with user fields"
-pathfinder contract-add core.users --output --name "User Result" --format "User entity or validation error"
-```
-
-**Step 13 -- Map code files to components**
+**Step 11 -- Map code files to components**
 
 Map source files and directories to their owning components:
 
 ```bash
-pathfinder map api.routes --glob "src/routes/**"
-pathfinder map api.middleware --glob "src/middleware/**"
-pathfinder map core.users --glob "src/domain/users/**"
-pathfinder map data.models --glob "src/models/**"
+pathfinder map api/routes src/routes/
+pathfinder map api/middleware src/middleware/
+pathfinder map core/users src/domain/users/
+pathfinder map data/models src/models/
 ```
 
 After mapping, verify coverage:
@@ -250,34 +215,27 @@ pathfinder unmapped
 
 If files remain unmapped, either assign them to existing components or create new components for them. Every source file should have an owner.
 
-**Step 14 -- Add data flows**
+**Step 12 -- Add data flows**
 
-Create flows for each identified data path. Multi-hop flows require one `flow-add` call per hop:
+Create flows for each identified data path:
 
 ```bash
-# Flow: api.routes -> core.users
-pathfinder flow-add api.routes core.users --data "HTTP request dispatched to user domain logic"
-
-# Flow: core.users -> data.models
-pathfinder flow-add core.users data.models --data "User domain persists entities to database"
-
-# Flow: core.orders -> stripe (external)
-pathfinder flow-add core.orders stripe --data "Order processing calls external payment gateway"
+pathfinder flow-add request-handling api/routes -> core/users "HTTP request dispatched to user domain logic"
+pathfinder flow-add user-persistence core/users -> data/models "User domain persists entities to database"
+pathfinder flow-add payment-integration core/orders -> infra/external "Order processing calls external payment gateway"
 ```
 
-For a multi-hop order flow (each hop is a separate call):
+For multi-step flows, chain the hops:
 
 ```bash
-pathfinder flow-add api.routes core.orders --data "Inbound order request"
-pathfinder flow-add core.orders data.orders --data "Persist order state"
-pathfinder flow-add core.orders stripe --data "Charge payment via Stripe"
+pathfinder flow-add order-flow api/routes -> core/orders -> data/models -> infra/external "Full order processing pipeline"
 ```
 
 ---
 
 ### Phase 4: Validate
 
-**Step 15 -- Run validation**
+**Step 13 -- Run validation**
 
 ```bash
 pathfinder validate
@@ -285,10 +243,10 @@ pathfinder validate
 
 Fix any issues reported: missing parents, orphaned components, circular dependencies.
 
-**Step 16 -- Review the result**
+**Step 14 -- Review the result**
 
 ```bash
-pathfinder show
+pathfinder list
 pathfinder flows
 pathfinder unmapped
 ```
@@ -299,7 +257,7 @@ Present a summary to the user:
 > **X** source files mapped, **Y** remain unmapped.
 >
 > Run `pathfinder show` to see the full component tree.
-> Run `pathfinder show <component>` to inspect any component.
+> Run `pathfinder info <component>` to inspect any component.
 
 ---
 
@@ -337,7 +295,7 @@ If dependencies are circular or boundaries are unclear:
 1. Map what you can -- it does not need to be perfect on the first pass
 2. Use `pathfinder validate` to surface problems
 3. Flag tangled areas as candidates for refactoring
-4. Use `pathfinder set <id> --spec "..."` to add a note about the tangle
+4. Mark components with a `status: needs-refactoring` note in their description
 
 ---
 
@@ -351,19 +309,6 @@ If dependencies are circular or boundaries are unclear:
 | Generated code | Exclude from mapping or create an `autogen` component with a note |
 | Config files | Map to an `infra/config` component |
 | CI/CD files | Optionally create a `ci` component, or leave unmapped |
-| Cloud resource (RDS, DynamoDB, SQS) | Internal infrastructure component if your team manages it via IaC |
-| Third-party SaaS or partner API | External component with `--external` flag |
-
-## When in doubt, ask
-
-- **Component boundaries are unclear** -- present two or three options with tradeoffs and ask the user which fits their mental model
-- **Component type is ambiguous** -- ask; type is advisory but should reflect how the team thinks about it
-- **Internal vs external classification is uncertain** -- ask; getting this wrong affects how dependencies and contracts are modeled
-- **A CLI command fails or produces unexpected output** -- show the exact error and ask the user before proceeding
-- **Naming could go multiple ways** -- present the options and ask; names matter for long-term navigation
-- **A significant area of code has no obvious owner** -- ask before inventing a new component; the user may want it grouped elsewhere
-
-Never silently guess and proceed when the architecture could reasonably go either way.
 
 ## Output
 

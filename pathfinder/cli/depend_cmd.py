@@ -2,7 +2,7 @@
 
 import click
 
-from pathfinder.core.storage import load_component, save_component
+from pathfinder.core.storage import load_component, save_component, resolve_component_id
 from pathfinder.core.index_builder import build_index
 from pathfinder.cli.utils import resolve_root
 
@@ -15,11 +15,12 @@ from pathfinder.cli.utils import resolve_root
 def depend_cmd(id_: str, target: str, remove: bool, root: str | None):
     """Add or remove a structural dependency."""
     project_root = resolve_root(root)
+    id_ = resolve_component_id(project_root, id_)
     component = load_component(project_root, id_)
 
     if not remove:
         try:
-            load_component(project_root, target)
+            target = resolve_component_id(project_root, target)
         except FileNotFoundError:
             raise click.ClickException(f"Target component '{target}' not found")
 

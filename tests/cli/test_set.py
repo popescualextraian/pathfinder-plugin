@@ -63,3 +63,17 @@ def test_sets_spec_from_file(runner, test_dir, tmp_path):
     runner.invoke(cli, ["set", "payment", "--spec-file", str(spec_file), "--root", str(test_dir)])
     comp = load_component(test_dir, "payment")
     assert "Stripe" in comp["spec"]
+
+
+def test_set_spec_with_slash_notation(runner, test_dir):
+    """set should accept slash notation for child components (api-layer/client → api-layer.client)."""
+    # Create a parent component
+    runner.invoke(cli, ["add", "module", "api-layer", "--root", str(test_dir)])
+    # Create a child component under api-layer; its ID will be api-layer.client
+    runner.invoke(cli, ["add", "component", "client", "--parent", "api-layer", "--root", str(test_dir)])
+    # Use slash notation to set spec — this is the scenario that previously failed
+    result = runner.invoke(cli, ["set", "api-layer/client", "--spec", "HTTP client for the API layer", "--root", str(test_dir)])
+    assert result.exit_code == 0, result.output
+    # Verify via the canonical dot-notation ID
+    comp = load_component(test_dir, "api-layer.client")
+    assert comp["spec"] == "HTTP client for the API layer"

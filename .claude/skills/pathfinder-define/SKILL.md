@@ -77,7 +77,7 @@ Identify which existing components are relevant. Ask:
 - Are there contracts that constrain how this new capability can behave?
 
 ```bash
-pathfinder show <relevant-component>
+pathfinder info <relevant-component>
 pathfinder deps <relevant-component>
 pathfinder dependents <relevant-component>
 ```
@@ -108,8 +108,8 @@ Apply these decomposition rules in order:
 
 For each proposed component, define:
 
-- **ID:** short, hierarchical identifier (e.g., `api.orders`, `core.payments`) -- IDs are auto-generated from name + parent
-- **Type:** service, module, library, api, store, ui, infrastructure
+- **ID:** short, hierarchical identifier (e.g., `api/orders`, `core/payments`)
+- **Type:** service, module, library, api, store, ui
 - **Description:** one sentence explaining its responsibility
 - **Responsibility boundary:** what it owns and what it does NOT own
 
@@ -118,15 +118,15 @@ Present the decomposition:
 ```
 Proposed components:
 
-ui.storefront           (ui)      -- Customer-facing product browsing and checkout
-api.gateway             (api)     -- HTTP API handling all client requests
-core.catalog            (module)  -- Product catalog management and search
-core.orders             (module)  -- Order lifecycle: creation, validation, fulfillment
-core.payments           (module)  -- Payment processing orchestration
-data.products           (store)   -- Product data persistence
-data.orders             (store)   -- Order data persistence
-infra.payment-gateway   (module)  -- External payment provider integration
-infra.notifications     (module)  -- Email and push notification dispatch
+ui/storefront           (ui)      -- Customer-facing product browsing and checkout
+api/gateway             (api)     -- HTTP API handling all client requests
+core/catalog            (module)  -- Product catalog management and search
+core/orders             (module)  -- Order lifecycle: creation, validation, fulfillment
+core/payments           (module)  -- Payment processing orchestration
+data/products           (store)   -- Product data persistence
+data/orders             (store)   -- Order data persistence
+infra/payment-gateway   (module)  -- External payment provider integration
+infra/notifications     (module)  -- Email and push notification dispatch
 ```
 
 Ask the user to validate. Iterate until they confirm.
@@ -146,15 +146,15 @@ Present contracts:
 ```
 Contracts:
 
-api.gateway -> core.orders
+api/gateway -> core/orders
   Input:  CreateOrderRequest { items: [{productId, quantity}], customerId }
   Output: OrderResponse { orderId, status, total } | ValidationError
 
-core.orders -> core.payments
+core/orders -> core/payments
   Input:  PaymentRequest { orderId, amount, currency, method }
   Output: PaymentResult { success, transactionId } | PaymentError
 
-core.orders -> infra.notifications
+core/orders -> infra/notifications
   Input:  NotificationRequest { type: "order_confirmed", recipient, data }
   Output: void (fire and forget)
 ```
@@ -172,15 +172,15 @@ For each key user operation identified in Step 2, trace the data flow through th
 ```
 Flow: "Customer places an order"
 
-  ui.storefront
-    -> api.gateway          [CreateOrderRequest]
-    -> core.orders          [validated order]
-    -> core.payments        [PaymentRequest]
-    -> infra.payment-gw     [provider API call]
-    -> core.orders          [PaymentResult -> update order status]
-    -> infra.notifications  [send confirmation email]
-    -> api.gateway          [OrderResponse]
-    -> ui.storefront        [display confirmation]
+  ui/storefront
+    -> api/gateway          [CreateOrderRequest]
+    -> core/orders          [validated order]
+    -> core/payments        [PaymentRequest]
+    -> infra/payment-gw     [provider API call]
+    -> core/orders          [PaymentResult -> update order status]
+    -> infra/notifications  [send confirmation email]
+    -> api/gateway          [OrderResponse]
+    -> ui/storefront        [display confirmation]
 ```
 
 Present each flow to the user. Verify the sequence makes sense.
@@ -202,70 +202,67 @@ Revise the component hierarchy if needed. Go back to Step 5 if the changes are s
 **Step 9 -- Initialize (greenfield only)**
 
 ```bash
-pathfinder init --name <project-name>
+pathfinder init <project-name>
 ```
 
-**Step 10 -- Create parent components first**
-
-Parent components must exist before child components can be nested under them:
+**Step 10 -- Create components**
 
 ```bash
-pathfinder add module "UI" --spec "User interface layer"
-pathfinder add api "API" --spec "HTTP API layer"
-pathfinder add module "Core" --spec "Core business logic"
-pathfinder add module "Data" --spec "Data persistence layer"
-pathfinder add module "Infra" --spec "Infrastructure and external integrations"
+pathfinder add ui/storefront --type ui --desc "Customer-facing product browsing and checkout"
+pathfinder add api/gateway --type api --desc "HTTP API handling all client requests"
+pathfinder add core/catalog --type module --desc "Product catalog management and search"
+pathfinder add core/orders --type module --desc "Order lifecycle: creation, validation, fulfillment"
+pathfinder add core/payments --type module --desc "Payment processing orchestration"
+pathfinder add data/products --type store --desc "Product data persistence"
+pathfinder add data/orders --type store --desc "Order data persistence"
+pathfinder add infra/payment-gw --type module --desc "External payment provider integration"
+pathfinder add infra/notifications --type module --desc "Email and push notification dispatch"
 ```
 
-**Step 11 -- Create child components**
-
-Pass `--parent <PARENT_ID>` to nest components. The ID is auto-generated from the parent ID plus the slugified name:
+**Step 11 -- Set parent relationships**
 
 ```bash
-pathfinder add ui "Storefront" --parent ui --spec "Customer-facing product browsing and checkout"
-pathfinder add api "Gateway" --parent api --spec "HTTP API handling all client requests"
-pathfinder add module "Catalog" --parent core --spec "Product catalog management and search"
-pathfinder add module "Orders" --parent core --spec "Order lifecycle: creation, validation, fulfillment"
-pathfinder add module "Payments" --parent core --spec "Payment processing orchestration"
-pathfinder add store "Products" --parent data --spec "Product data persistence"
-pathfinder add store "Orders" --parent data --spec "Order data persistence"
-pathfinder add module "Payment Gateway" --parent infra --spec "External payment provider integration"
-pathfinder add module "Notifications" --parent infra --spec "Email and push notification dispatch"
+pathfinder set ui/storefront parent ui
+pathfinder set core/catalog parent core
+pathfinder set core/orders parent core
+pathfinder set core/payments parent core
+pathfinder set data/products parent data
+pathfinder set data/orders parent data
+pathfinder set infra/payment-gw parent infra
+pathfinder set infra/notifications parent infra
 ```
 
-**Step 12 -- Add contracts**
-
-Use `contract-add` for each component that has a defined interface:
+Create parent components first if they do not exist:
 
 ```bash
-pathfinder contract-add api.gateway --input --name "Client Request" --format "HTTP REST JSON"
-pathfinder contract-add api.gateway --output --name "Client Response" --format "HTTP JSON or validation error"
+pathfinder add ui --type module --desc "User interface layer"
+pathfinder add core --type module --desc "Core business logic"
+pathfinder add data --type module --desc "Data persistence layer"
+pathfinder add infra --type module --desc "Infrastructure and external integrations"
+```
 
-pathfinder contract-add core.orders --input --name "CreateOrderRequest" --format "{ items: [{productId, quantity}], customerId }"
-pathfinder contract-add core.orders --output --name "OrderResponse" --format "{ orderId, status, total } | ValidationError"
+**Step 12 -- Set contracts**
 
-pathfinder contract-add core.payments --input --name "PaymentRequest" --format "{ orderId, amount, currency, method }"
-pathfinder contract-add core.payments --output --name "PaymentResult" --format "{ success, transactionId } | PaymentError"
+```bash
+pathfinder set api/gateway contract.inputs "HTTP requests from clients (REST JSON)"
+pathfinder set api/gateway contract.outputs "HTTP responses (JSON), validation errors"
 
-pathfinder contract-add infra.notifications --input --name "NotificationRequest" --format "{ type, recipient, data }"
-pathfinder contract-add infra.notifications --output --name "void" --format "fire and forget, no return value"
+pathfinder set core/orders contract.inputs "CreateOrderRequest, CancelOrderRequest, GetOrderQuery"
+pathfinder set core/orders contract.outputs "OrderResponse, OrderList, ValidationError"
+
+pathfinder set core/payments contract.inputs "PaymentRequest { orderId, amount, currency, method }"
+pathfinder set core/payments contract.outputs "PaymentResult { success, transactionId } | PaymentError"
+
+pathfinder set infra/notifications contract.inputs "NotificationRequest { type, recipient, data }"
+pathfinder set infra/notifications contract.outputs "void (fire and forget)"
 ```
 
 **Step 13 -- Add data flows**
 
-Each hop in a flow is a separate `flow-add` call. There is no multi-hop syntax.
-
 ```bash
-# place-order flow
-pathfinder flow-add api.gateway core.orders --data "CreateOrderRequest from client"
-pathfinder flow-add core.orders core.payments --data "PaymentRequest for order total"
-pathfinder flow-add core.payments infra.payment-gw --data "Provider-specific payment API call"
-pathfinder flow-add core.orders infra.notifications --data "Order confirmed: send email to customer"
-
-# browse-catalog flow
-pathfinder flow-add ui.storefront api.gateway --data "Product search request"
-pathfinder flow-add api.gateway core.catalog --data "Catalog query"
-pathfinder flow-add core.catalog data.products --data "Product data read"
+pathfinder flow-add place-order api/gateway -> core/orders -> core/payments -> infra/payment-gw "Customer places order: API receives request, order logic validates, payment processes"
+pathfinder flow-add order-confirm core/orders -> infra/notifications "Order confirmed: send email notification to customer"
+pathfinder flow-add browse-catalog ui/storefront -> api/gateway -> core/catalog -> data/products "Customer browses products"
 ```
 
 **Step 14 -- Apply standards (if any)**
@@ -330,18 +327,6 @@ This skill is inherently iterative. At each phase, present your work to the user
 - **Skipping contracts** -- contracts are the most valuable part; without them, components are just labels
 - **Defining flows last** -- flows should drive component discovery, not the other way around
 - **Over-decomposition** -- start coarse, split when you have a reason; 5-15 components is typical for a medium system
-
-## When in doubt, ask
-
-- **Component boundary is unclear** -- present options with tradeoffs and ask the user which decomposition fits their mental model
-- **Component type could go multiple ways** -- ask; type is advisory but should reflect how the team thinks about this piece
-- **Contract format is unclear** -- ask before inventing a schema; wrong contracts are worse than no contracts
-- **A component could be internal or external** -- ask; this affects how dependencies and ownership are modeled
-- **Naming could go multiple ways** -- present the options; names affect long-term discoverability
-- **A flow seems like it might be missing steps** -- ask before adding hops; better to confirm the data path than to guess
-- **A CLI command fails or produces unexpected output** -- show the exact error and ask the user before continuing
-
-Never silently guess and proceed when the architecture could reasonably go either way.
 
 ## Output
 

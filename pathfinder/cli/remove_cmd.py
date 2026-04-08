@@ -3,7 +3,7 @@ import click
 from pathfinder.core.storage import delete_component
 from pathfinder.core.index_builder import build_index
 from pathfinder.core.graph import get_dependents
-from pathfinder.cli.utils import resolve_root
+from pathfinder.cli.utils import resolve_root, resolve_index_id
 
 def collect_descendants(index: dict, comp_id: str) -> list[str]:
     result = [comp_id]
@@ -22,9 +22,8 @@ def remove_cmd(id_: str, force: bool, dry_run: bool, root: str | None):
     """Remove a component and its children recursively."""
     project_root = resolve_root(root)
     index = build_index(project_root)
-    entry = index["components"].get(id_)
-    if not entry:
-        raise click.ClickException(f"Component '{id_}' not found")
+    id_ = resolve_index_id(index, id_)
+    entry = index["components"][id_]
     to_remove = collect_descendants(index, id_)
     external_dependents = []
     for remove_id in to_remove:

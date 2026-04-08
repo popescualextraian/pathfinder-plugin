@@ -16,6 +16,7 @@ from pathfinder.core.storage import (
     find_all_component_files,
     get_component_dir,
     get_pathfinder_dir,
+    resolve_component_id,
 )
 from pathfinder.types import ProjectConfig, Standards
 
@@ -142,6 +143,49 @@ class TestComponents:
         })
         files = find_all_component_files(test_dir)
         assert len(files) == 2
+
+
+class TestResolveComponentId:
+    @pytest.fixture(autouse=True)
+    def setup(self, test_dir):
+        init_project(test_dir, "Test")
+        save_component(test_dir, {
+            "id": "api-layer",
+            "name": "API Layer",
+            "type": "module",
+            "status": "active",
+        })
+        save_component(test_dir, {
+            "id": "api-layer.client",
+            "name": "Client",
+            "type": "component",
+            "status": "active",
+            "parent": "api-layer",
+        })
+
+    def test_resolves_dot_notation_as_is(self, test_dir):
+        resolved = resolve_component_id(test_dir, "api-layer.client")
+        assert resolved == "api-layer.client"
+
+    def test_resolves_slash_to_dot_notation(self, test_dir):
+        resolved = resolve_component_id(test_dir, "api-layer/client")
+        assert resolved == "api-layer.client"
+
+    def test_resolves_root_component_dot_notation(self, test_dir):
+        resolved = resolve_component_id(test_dir, "api-layer")
+        assert resolved == "api-layer"
+
+    def test_raises_for_nonexistent_dot_id(self, test_dir):
+        with pytest.raises(FileNotFoundError, match="not found"):
+            resolve_component_id(test_dir, "does.not.exist")
+
+    def test_raises_for_nonexistent_slash_id(self, test_dir):
+        with pytest.raises(FileNotFoundError, match="not found"):
+            resolve_component_id(test_dir, "does/not/exist")
+
+    def test_helpful_message_includes_tried_dot_id(self, test_dir):
+        with pytest.raises(FileNotFoundError, match="does.not.exist"):
+            resolve_component_id(test_dir, "does/not/exist")
 
 
 class TestStandards:

@@ -2,7 +2,7 @@
 
 import click
 
-from pathfinder.core.storage import load_component, save_component
+from pathfinder.core.storage import load_component, save_component, resolve_component_id
 from pathfinder.core.index_builder import build_index
 from pathfinder.core.graph import find_component_by_code_path
 from pathfinder.cli.utils import resolve_root
@@ -16,6 +16,7 @@ from pathfinder.cli.utils import resolve_root
 def map_cmd(id_, glob_pattern, repo, root):
     """Map code files to a component."""
     project_root = resolve_root(root)
+    id_ = resolve_component_id(project_root, id_)
     component = load_component(project_root, id_)
     mappings = component.get("codeMappings", [])
     new_mapping = {"glob": glob_pattern}
@@ -25,7 +26,7 @@ def map_cmd(id_, glob_pattern, repo, root):
     component["codeMappings"] = mappings
     save_component(project_root, component)
     build_index(project_root)
-    click.echo(f"Mapped {glob_pattern} \u2192 {component['name']} ({id_})")
+    click.echo(f"Mapped {glob_pattern} -> {component['name']} ({id_})")
 
 
 @click.command("mapped")
@@ -38,7 +39,7 @@ def mapped_cmd(file, root):
     comp_id = find_component_by_code_path(index, file)
     if comp_id:
         comp = index["components"][comp_id]
-        click.echo(f"{file} \u2192 {comp['name']} ({comp_id})")
+        click.echo(f"{file} -> {comp['name']} ({comp_id})")
     else:
         click.echo(f"No component mapped to {file}")
 

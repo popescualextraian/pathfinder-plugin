@@ -2,10 +2,10 @@
 
 import click
 
-from pathfinder.core.storage import load_component, save_component
+from pathfinder.core.storage import load_component, save_component, resolve_component_id
 from pathfinder.core.index_builder import build_index
 from pathfinder.core.graph import get_flows_for_component, trace_flow
-from pathfinder.cli.utils import resolve_root
+from pathfinder.cli.utils import resolve_root, resolve_index_id
 
 
 @click.command("flows")
@@ -17,6 +17,7 @@ def flows_cmd(id_, root):
     index = build_index(project_root)
 
     if id_:
+        id_ = resolve_index_id(index, id_)
         flows = get_flows_for_component(index, id_)
     else:
         flows = index["flows"]
@@ -37,7 +38,7 @@ def flows_cmd(id_, root):
             suffix = f" [{pattern}]"
         else:
             suffix = ""
-        click.echo(f"  {flow['from']} \u2192 {flow['to']}: {flow['data']}{suffix}")
+        click.echo(f"  {flow['from']} -> {flow['to']}: {flow['data']}{suffix}")
 
 
 @click.command("trace")
@@ -48,13 +49,15 @@ def trace_cmd(from_id, to_id, root):
     """Trace data flow path between two components."""
     project_root = resolve_root(root)
     index = build_index(project_root)
+    from_id = resolve_index_id(index, from_id)
+    to_id = resolve_index_id(index, to_id)
     path = trace_flow(index, from_id, to_id)
 
     if not path:
         click.echo(f"No path found from {from_id} to {to_id}")
         return
 
-    click.echo(f"Flow path: {' \u2192 '.join(path)}")
+    click.echo(f"Flow path: {' -> '.join(path)}")
 
 
 @click.command("flow-add")
@@ -67,6 +70,7 @@ def trace_cmd(from_id, to_id, root):
 def flow_add_cmd(from_id, to_id, data, protocol, pattern, root):
     """Add a data flow between components."""
     project_root = resolve_root(root)
+    from_id = resolve_component_id(project_root, from_id)
     component = load_component(project_root, from_id)
     flows = component.get("dataFlows", [])
     new_flow = {"to": to_id, "data": data}
@@ -78,4 +82,4 @@ def flow_add_cmd(from_id, to_id, data, protocol, pattern, root):
     component["dataFlows"] = flows
     save_component(project_root, component)
     build_index(project_root)
-    click.echo(f"Added flow: {from_id} \u2192 {to_id} ({data})")
+    click.echo(f"Added flow: {from_id} -> {to_id} ({data})")

@@ -15,8 +15,9 @@ def name_to_slug(name: str) -> str:
 @click.argument("name")
 @click.option("--parent", default=None, help="Parent component ID")
 @click.option("--external", is_flag=True, help="Mark as external component")
+@click.option("--spec", default=None, help="Set component spec/description")
 @click.option("--root", default=None, help="Project root directory")
-def add_cmd(type_: str, name: str, parent: str | None, external: bool, root: str | None):
+def add_cmd(type_: str, name: str, parent: str | None, external: bool, spec: str | None, root: str | None):
     """Add a new component."""
     project_root = resolve_root(root)
 
@@ -39,6 +40,8 @@ def add_cmd(type_: str, name: str, parent: str | None, external: bool, root: str
     comp = {"id": comp_id, "name": name, "type": type_, "status": "active", "parent": parent}
     if external:
         comp["external"] = True
+    if spec:
+        comp["spec"] = spec
     save_component(project_root, comp)
     build_index(project_root)
     click.echo(f"Added {type_} '{name}' ({comp_id})")

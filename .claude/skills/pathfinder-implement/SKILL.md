@@ -36,7 +36,7 @@ description: TDD implementation within component boundaries — load specs, writ
 **Step 1 -- Load the component spec**
 
 ```bash
-pathfinder show <component-id>
+pathfinder info <component-id>
 ```
 
 Record:
@@ -55,7 +55,7 @@ pathfinder dependents <component-id>
 For each dependency, load its contract:
 
 ```bash
-pathfinder show <dependency-id>
+pathfinder info <dependency-id>
 ```
 
 You need these contracts to understand:
@@ -213,22 +213,16 @@ Review tests for:
 For every new file created during implementation:
 
 ```bash
-pathfinder map <component-id> --glob "<pattern>"
+pathfinder map <component-id> <file-path>
 ```
 
 Examples:
 
 ```bash
-pathfinder map core.orders --glob "src/domain/orders/**"
-pathfinder map core.orders --glob "tests/test_orders.py"
-```
-
-For individual files you can also use an exact glob:
-
-```bash
-pathfinder map core.orders --glob "src/domain/orders/service.py"
-pathfinder map core.orders --glob "src/domain/orders/models.py"
-pathfinder map core.orders --glob "src/domain/orders/validators.py"
+pathfinder map core/orders src/domain/orders/service.py
+pathfinder map core/orders src/domain/orders/models.py
+pathfinder map core/orders src/domain/orders/validators.py
+pathfinder map core/orders tests/test_orders.py
 ```
 
 **Step 13 -- Verify no unmapped files remain**
@@ -270,14 +264,14 @@ Present to the user:
 ```
 == Implementation Complete ==
 
-Component: core.orders
+Component: core/orders
 Task: Implement order creation with payment processing
 
 Files created:
-  - src/domain/orders/service.py      (mapped to core.orders)
-  - src/domain/orders/models.py       (mapped to core.orders)
-  - src/domain/orders/validators.py   (mapped to core.orders)
-  - tests/test_orders.py              (mapped to core.orders)
+  - src/domain/orders/service.py      (mapped to core/orders)
+  - src/domain/orders/models.py       (mapped to core/orders)
+  - src/domain/orders/validators.py   (mapped to core/orders)
+  - tests/test_orders.py              (mapped to core/orders)
 
 Tests: 12 passed, 0 failed
 Drift check: clean
@@ -286,7 +280,7 @@ Validation: passing
 Contract compliance:
   - Input contract: CreateOrderRequest -- implemented and tested
   - Output contract: OrderResponse, ValidationError -- implemented and tested
-  - Dependency contracts: core.payments, infra.notifications -- mocked in tests
+  - Dependency contracts: core/payments, infra/notifications -- mocked in tests
 
 Notes:
   - [any observations, contract concerns, or follow-up items]
@@ -308,8 +302,8 @@ If during implementation you discover that a contract cannot be satisfied as spe
 5. After the decision, update the contract in pathfinder:
 
 ```bash
-pathfinder contract-remove <component-id> --name "<old-contract-name>"
-pathfinder contract-add <component-id> --input --name "<name>" --format "<updated format>"
+pathfinder set <component-id> contract.inputs "<updated input contract>"
+pathfinder set <component-id> contract.outputs "<updated output contract>"
 ```
 
 Then resume implementation.
@@ -326,10 +320,10 @@ If the task requires implementing across multiple components:
 Order of implementation:
 
 ```
-1. data.orders        (leaf -- no dependencies on other new components)
-2. infra.payment-gw   (leaf -- wraps external service)
-3. core.orders        (depends on data.orders and infra.payment-gw)
-4. api.gateway        (depends on core.orders)
+1. data/orders        (leaf -- no dependencies on other new components)
+2. infra/payment-gw   (leaf -- wraps external service)
+3. core/orders        (depends on data/orders and infra/payment-gw)
+4. api/gateway         (depends on core/orders)
 ```
 
 ## Decision points
@@ -341,17 +335,6 @@ Order of implementation:
 | Implementation needs a new dependency | Do not add it silently; propose it and update the architecture |
 | Tests pass but drift check fails | The spec is out of date -- update it, do not disable drift checking |
 | Existing tests break | Your change has wider impact than expected; use pathfinder-check to analyze |
-
-## When in doubt, ask
-
-- **No contracts are defined** -- do not infer and proceed; ask the user to define them or confirm your interpretation before writing tests
-- **A contract is ambiguous** -- ask before implementing; the wrong interpretation produces tests and code that may need to be thrown away
-- **Implementation requires a new dependency that is not in the architecture** -- ask before adding it; new dependencies change the component graph
-- **A drift check fails and the right fix is unclear** -- present the drift finding and ask the user whether to update the spec or fix the code
-- **A test needs to be changed** -- ask the user; changing a test changes the contract
-- **A CLI command fails or produces unexpected output** -- show the exact error and ask the user before continuing
-
-Never silently guess and proceed when the architecture could reasonably go either way.
 
 ## Output
 

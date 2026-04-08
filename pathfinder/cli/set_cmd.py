@@ -3,7 +3,7 @@
 import click
 from pathlib import Path
 
-from pathfinder.core.storage import load_component, save_component
+from pathfinder.core.storage import load_component, save_component, resolve_component_id
 from pathfinder.core.index_builder import build_index
 from pathfinder.cli.utils import resolve_root
 
@@ -20,16 +20,17 @@ from pathfinder.cli.utils import resolve_root
 def set_cmd(id_: str, status, type_, tag, remove_tag, spec, spec_file, root):
     """Update component fields."""
     project_root = resolve_root(root)
+    id_ = resolve_component_id(project_root, id_)
     component = load_component(project_root, id_)
     changes = []
 
     if status:
         component["status"] = status
-        changes.append(f"status \u2192 {status}")
+        changes.append(f"status -> {status}")
 
     if type_:
         component["type"] = type_
-        changes.append(f"type \u2192 {type_}")
+        changes.append(f"type -> {type_}")
 
     if tag:
         tags = component.get("tags", [])

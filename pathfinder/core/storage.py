@@ -122,3 +122,37 @@ def find_all_component_files(project_root: Path) -> list[Path]:
 def load_all_components(project_root: Path) -> list[dict]:
     files = find_all_component_files(project_root)
     return [yaml.safe_load(f.read_text()) for f in files]
+
+
+def resolve_component_id(project_root: Path, component_id: str) -> str:
+    """Resolve a component ID, accepting both dot and slash notation.
+
+    When the ID contains '/', the dot-normalized form is tried first so the
+    canonical dot-notation ID is always returned. Falls back to the original
+    slash form if the dot form doesn't exist. Raises FileNotFoundError (with a
+    helpful message) if neither attempt succeeds.
+    """
+    if "/" in component_id:
+        dot_id = component_id.replace("/", ".")
+        try:
+            load_component(project_root, dot_id)
+            return dot_id
+        except FileNotFoundError:
+            pass
+        # Try the original slash form (may work on some file systems)
+        try:
+            load_component(project_root, component_id)
+            return component_id
+        except FileNotFoundError:
+            raise FileNotFoundError(
+                f"Component '{component_id}' not found (also tried '{dot_id}'). "
+                "Check the ID with 'pathfinder list'."
+            )
+    try:
+        load_component(project_root, component_id)
+        return component_id
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            f"Component '{component_id}' not found. "
+            "Check the ID with 'pathfinder list'."
+        )

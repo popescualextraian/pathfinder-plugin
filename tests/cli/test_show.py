@@ -70,3 +70,9 @@ def test_shows_external_marker(runner, test_dir):
         "external": True})
     result = runner.invoke(cli, ["show", "stripe", "--root", str(test_dir)])
     assert "external" in result.output.lower()
+
+
+def test_show_without_args_displays_tree(runner, test_dir):
+    result = runner.invoke(cli, ["show", "--root", str(test_dir)])
+    assert result.exit_code == 0
+    assert "Payment" in result.output

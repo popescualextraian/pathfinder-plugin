@@ -50,8 +50,6 @@ This compares the declared component specs against the actual codebase. Drift ty
 
 Record all drift findings.
 
-Note: `pathfinder drift check` applies to the whole project. It does not accept a component ID argument. To focus on a specific area, use `pathfinder show <component-id>` and `pathfinder mapped <component-id>` to examine that component manually.
-
 ### Step 2 -- Run validation
 
 ```bash
@@ -97,7 +95,7 @@ Also check for flows that reference components in an order that does not match t
 For each component that has contracts defined, verify that the actual implementation matches:
 
 ```bash
-pathfinder show <component-id>
+pathfinder info <component-id>
 ```
 
 Read the contract, then check the mapped files:
@@ -121,16 +119,16 @@ Drift findings:
   [OK] No drift detected
   -- or --
   [DRIFT] 3 unmapped files in src/utils/
-  [DRIFT] core.payments contract mismatch: declared output "PaymentResult"
+  [DRIFT] core/payments contract mismatch: declared output "PaymentResult"
           but implementation returns "PaymentResponse"
-  [DRIFT] Undeclared dependency: core.orders imports from infra.cache
-          (infra.cache not listed as a dependency of core.orders)
+  [DRIFT] Undeclared dependency: core/orders imports from infra/cache
+          (infra/cache not listed as a dependency of core/orders)
 
 Validation:
   [OK] All structural checks pass
   -- or --
-  [ERROR] Component "legacy.old-module" has no mapped files and no children
-  [WARN] Flow references component "core.discounts" which has no contract
+  [ERROR] Component "legacy/old-module" has no mapped files and no children
+  [WARN] Flow "checkout" references component "core/discounts" which has no contract
 
 Unmapped files: 3
   - src/utils/helpers.py
@@ -141,14 +139,14 @@ Flow coverage:
   [OK] 5 flows defined, all reference valid components
   -- or --
   [GAP] No flow covers the "password reset" operation
-  [STALE] A flow references removed component "legacy.cart"
+  [STALE] Flow "old-checkout" references removed component "legacy/cart"
 
 Recommendations:
-  1. Map src/utils/ files to a "shared.utils" component or create one
-  2. Update core.payments contract: rename "PaymentResult" to "PaymentResponse"
+  1. Map src/utils/ files to a "shared/utils" component or create one
+  2. Update core/payments contract: rename "PaymentResult" to "PaymentResponse"
      -- OR -- rename the implementation class to match the spec
-  3. Add infra.cache as a dependency of core.orders
-  4. Remove orphan component "legacy.old-module" or map files to it
+  3. Add infra/cache as a dependency of core/orders
+  4. Remove orphan component "legacy/old-module" or map files to it
 ```
 
 ### Step 7 -- Triage recommendations
@@ -183,7 +181,7 @@ pathfinder mapped <file-path>
 If the user specifies a component:
 
 ```bash
-pathfinder show <component-id>
+pathfinder info <component-id>
 ```
 
 If the user describes a change in general terms, use pathfinder-navigate (Route B) to locate the relevant components.
@@ -208,10 +206,10 @@ Categorize the impact:
 pathfinder flows <component-id>
 ```
 
-For each flow that passes through the affected component, trace the full path between its endpoints:
+For each flow that passes through the affected component:
 
 ```bash
-pathfinder trace <from-component-id> <to-component-id>
+pathfinder trace <flow-name>
 ```
 
 Every component in these flows is potentially affected. The further a component is from the change point, the less likely it is actually impacted -- but it should still be checked.
@@ -227,7 +225,7 @@ pathfinder dependents <component-id>
 For each dependent, check: does it rely on the part of the contract that is changing?
 
 ```bash
-pathfinder show <dependent-id>
+pathfinder info <dependent-id>
 ```
 
 Load the dependent's spec and determine if the contract change breaks its assumptions.
@@ -250,55 +248,55 @@ Continue until the cascade stops (components that are not affected by the upstre
 == Impact Analysis ==
 
 Proposed change: "Add discount support to order creation"
-Primary component: core.orders
+Primary component: core/orders
 
 Direct impact:
-  - api.gateway          -- needs to accept discount codes in CreateOrderRequest
-  - core.payments        -- payment amount will change based on discounts
-  - data.orders          -- order model needs discount fields
+  - api/gateway          -- needs to accept discount codes in CreateOrderRequest
+  - core/payments        -- payment amount will change based on discounts
+  - data/orders          -- order model needs discount fields
 
 Flow impact:
-  - api.gateway -> core.orders  -- discount validation added between gateway and orders
-  - browse-catalog flow         -- not affected
+  - place-order flow     -- discount validation added between gateway and orders
+  - browse-catalog flow  -- not affected
 
 Contract changes required:
-  - core.orders input:   add "discountCode" to CreateOrderRequest
-  - core.orders output:  add "discount" and "subtotal" to OrderResponse
-  - core.payments input: amount field now reflects discounted total (no schema change)
+  - core/orders input:   add "discountCode" to CreateOrderRequest
+  - core/orders output:  add "discount" and "subtotal" to OrderResponse
+  - core/payments input: amount field now reflects discounted total (no schema change)
 
 New components needed:
-  - core.discounts       -- discount rule engine (new component)
+  - core/discounts       -- discount rule engine (new component)
 
 Cascade:
-  - api.gateway -> already identified (direct dependent)
-  - ui.storefront -> needs to send discount code (transitive via api.gateway)
+  - api/gateway -> already identified (direct dependent)
+  - ui/storefront -> needs to send discount code (transitive via api/gateway)
 
 Risk assessment:
-  - LOW:  data.orders schema change (additive, backward compatible)
-  - MED:  api.gateway contract change (clients must update)
-  - HIGH: core.payments behavior change (payment amount changes silently)
+  - LOW:  data/orders schema change (additive, backward compatible)
+  - MED:  api/gateway contract change (clients must update)
+  - HIGH: core/payments behavior change (payment amount changes silently)
 
 Recommendation:
-  1. Create core.discounts component first (use pathfinder-define)
-  2. Update core.orders contract to include discount fields
-  3. Implement core.discounts, then update core.orders
-  4. Update api.gateway to pass discount codes through
-  5. Verify core.payments handles discounted amounts correctly
-  6. Update ui.storefront to collect discount codes
+  1. Create core/discounts component first (use pathfinder-define)
+  2. Update core/orders contract to include discount fields
+  3. Implement core/discounts, then update core/orders
+  4. Update api/gateway to pass discount codes through
+  5. Verify core/payments handles discounted amounts correctly
+  6. Update ui/storefront to collect discount codes
 ```
 
 ---
 
 ## Running a scoped check
 
-To check only a specific component, use targeted commands rather than a scoped drift check (drift check runs project-wide):
+To check only specific components instead of the entire project:
 
 ```bash
-pathfinder show <component-id>
+pathfinder drift check <component-id>
+pathfinder info <component-id>
 pathfinder deps <component-id>
 pathfinder dependents <component-id>
 pathfinder flows <component-id>
-pathfinder mapped <component-id>
 ```
 
 This is useful for:
@@ -318,16 +316,6 @@ This is useful for:
 | Circular dependency detected | Architecture smell -- recommend refactoring to break the cycle |
 | Impact analysis shows 10+ affected components | The change is too broad -- recommend decomposing into smaller changes |
 | No flows exist at all | The project needs flow definitions -- suggest running pathfinder-define |
-
-## When in doubt, ask
-
-- **Drift finding is ambiguous** (spec and code both seem reasonable) -- present both options and ask the user whether to update the spec or fix the code
-- **An unmapped file could belong to multiple components** -- ask the user before mapping
-- **Impact analysis reveals a cascade that could be large** -- pause and ask the user if they want to proceed or decompose the change
-- **A contract mismatch fix could break downstream components** -- explain the risk and ask for the user's decision before recommending a fix
-- **A CLI command fails or produces unexpected output** -- show the exact error and ask the user before continuing
-
-Never silently guess and proceed when the architecture could reasonably go either way.
 
 ## Output
 

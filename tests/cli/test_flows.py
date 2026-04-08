@@ -64,3 +64,8 @@ def test_flows_displays_pattern(runner, test_dir):
         "dataFlows": [{"to": "payment", "data": "OrderEvent", "protocol": "kafka", "pattern": "publish"}]})
     result = runner.invoke(cli, ["flows", "--root", str(test_dir)])
     assert "kafka/publish" in result.output
+
+
+def test_flows_unknown_component_shows_error(runner, test_dir):
+    result = runner.invoke(cli, ["flows", "nonexistent", "--root", str(test_dir)])
+    assert "not found" in result.output

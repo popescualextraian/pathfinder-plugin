@@ -50,7 +50,7 @@ Check if the file should be mapped to an existing component, or if a new compone
 **Step 2 -- Load the component spec**
 
 ```bash
-pathfinder show <component-id>
+pathfinder info <component-id>
 ```
 
 This gives you the component's description, type, contracts, and metadata. Record:
@@ -71,7 +71,7 @@ pathfinder dependents <component-id>
 This gives you the immediate neighbors in the architecture graph. For each neighbor, load a brief summary:
 
 ```bash
-pathfinder show <dependency-id>
+pathfinder info <dependency-id>
 ```
 
 You do NOT need to load the full spec of every neighbor. Load only:
@@ -86,10 +86,10 @@ pathfinder flows <component-id>
 
 This shows all flows that pass through this component. For the task at hand, identify which flows are relevant.
 
-If you need to trace a specific flow end-to-end between two components:
+If you need to trace a specific flow end-to-end:
 
 ```bash
-pathfinder trace <from-component-id> <to-component-id>
+pathfinder trace <flow-name>
 ```
 
 ---
@@ -109,17 +109,17 @@ pathfinder search "verification"
 If search does not find relevant results, try:
 
 ```bash
-pathfinder show
+pathfinder list
 ```
 
-This shows the full component tree. Scan component names and descriptions to find candidates.
+And scan component names and descriptions manually.
 
 **Step 2 -- Identify the primary component**
 
 From the search results, determine which component is the primary owner of this task. The primary component is the one whose responsibility most directly matches the task.
 
 ```bash
-pathfinder show <candidate-component>
+pathfinder info <candidate-component>
 ```
 
 Check: does this component's description and contracts match the task? If yes, this is your primary component. If not, try the next candidate.
@@ -168,7 +168,7 @@ pathfinder flows
 
 **Step 3 -- Let the user drill down**
 
-Ask: "Which area would you like to explore?" Then use `pathfinder show <id>`, `pathfinder deps`, and `pathfinder dependents` to drill into that area.
+Ask: "Which area would you like to explore?" Then use `pathfinder info`, `pathfinder deps`, and `pathfinder children` to drill into that area.
 
 ---
 
@@ -179,7 +179,7 @@ After loading the relevant information, present it in this structured format:
 ```
 == Navigation Context ==
 
-Primary component: core.orders
+Primary component: core/orders
   Type: module
   Description: Order lifecycle: creation, validation, fulfillment
   Contracts:
@@ -187,16 +187,16 @@ Primary component: core.orders
     Out: OrderResponse, OrderList, ValidationError
 
 Dependencies (what this component calls):
-  - data.orders       -- persists order data
-  - core.payments     -- processes payment for orders
-  - infra.notifications -- sends order confirmation emails
+  - data/orders       -- persists order data
+  - core/payments     -- processes payment for orders
+  - infra/notifications -- sends order confirmation emails
 
 Dependents (what calls this component):
-  - api.gateway       -- routes HTTP requests to order logic
+  - api/gateway       -- routes HTTP requests to order logic
 
 Relevant flows:
-  - api.gateway -> core.orders -> core.payments -> infra.payment-gw
-  - core.orders -> infra.notifications
+  - place-order: api/gateway -> core/orders -> core/payments -> infra/payment-gw
+  - order-confirm: core/orders -> infra/notifications
 
 Mapped files:
   - src/domain/orders/service.py
@@ -211,7 +211,7 @@ This skill exists to avoid loading the entire architecture into context. Follow 
 1. **Never load all components at once** unless the user explicitly asks for an overview
 2. **Load at most 2 levels deep** -- the primary component, its immediate neighbors, and stop
 3. **Load contracts, not implementations** -- when examining a neighbor, you only need its interface, not its internals
-4. **Prefer `show <id>` over `show`** -- `show <id>` gives you one component; `show` gives you everything
+4. **Prefer `info` over `show`** -- `info` gives you one component; `show` gives you everything
 5. **Use `flows` with a component filter** -- only load flows that touch the component you care about
 6. **Cache in conversation context** -- if you already loaded a component's info earlier in the conversation, do not reload it
 
@@ -224,16 +224,6 @@ This skill exists to avoid loading the entire architecture into context. Follow 
 | Component has no contracts defined | Load the mapped files to infer the interface; suggest defining contracts |
 | Multiple candidates for primary component | Ask the user which aspect of the task they want to focus on first |
 | Flow does not exist for this operation | Note this as a gap; suggest adding the flow with `pathfinder-define` |
-
-## When in doubt, ask
-
-- **Multiple components could be the primary owner** -- present the candidates and ask the user which one to focus on
-- **A file is unmapped and it is unclear where it belongs** -- ask before mapping; the user may want it in a different component than it appears
-- **A flow does not exist for the operation you are navigating** -- ask whether to proceed without a flow or define one first
-- **A component has no contracts and the interface is ambiguous** -- ask the user to clarify intent rather than inferring
-- **A CLI command fails or produces unexpected output** -- show the exact error and ask the user before continuing
-
-Never silently guess and proceed when the architecture could reasonably go either way.
 
 ## Output
 

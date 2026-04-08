@@ -1,6 +1,6 @@
 """Move command."""
 import click
-from pathfinder.core.storage import load_component, save_component, delete_component
+from pathfinder.core.storage import load_component, save_component, delete_component, resolve_component_id
 from pathfinder.core.index_builder import build_index
 from pathfinder.cli.utils import resolve_root
 
@@ -11,9 +11,10 @@ from pathfinder.cli.utils import resolve_root
 def move_cmd(id_: str, parent: str, root: str | None):
     """Move a component to a new parent."""
     project_root = resolve_root(root)
+    id_ = resolve_component_id(project_root, id_)
     component = load_component(project_root, id_)
     try:
-        load_component(project_root, parent)
+        parent = resolve_component_id(project_root, parent)
     except FileNotFoundError:
         raise click.ClickException(f"Parent component '{parent}' not found")
     slug = id_.rsplit(".", 1)[-1] if "." in id_ else id_
