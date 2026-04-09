@@ -2,9 +2,9 @@
 
 > Architecture knowledge layer for LLM agents: auto-discover, selectively load, visually validate, and enforce component boundaries.
 
-**Authors:** CYD Team  
-**Date:** 2026-04-09  
-**Status:** Draft  
+**Authors:** CYD Team
+**Date:** 2026-04-09
+**Status:** Draft
 **Context:** Learnings from pathfinder v1 brownfield discovery on ChatYourData (74 components, 30 flows, ~60 CLI calls, multiple CLI bugs)
 
 ---
@@ -24,7 +24,57 @@ Additionally, neither provides a fast way for the **human** to validate the agen
 
 ---
 
-## 2. Design Principles
+## 2. Prior Art & Landscape
+
+Research and existing tools confirm this is an active problem space with no complete solution yet.
+
+### 2.1 Closest Matches
+
+**[Repository Intelligence Graph (RIG)](https://arxiv.org/abs/2601.10112)** — Academic paper (Jan 2026). Builds a deterministic architectural map from build/test artifacts (CMake). The SPADE extractor produces an LLM-friendly JSON graph of buildable components, dependencies, tests, and external packages. Tested with Claude Code, Cursor, and Codex — improved accuracy by 12.2% and reduced completion time by 53.9%. **Limitation:** Only extracts build structure, not data flows or logical component boundaries. CMake-only currently.
+
+**[Codified Context](https://arxiv.org/abs/2602.20478)** — Academic paper (Feb 2026). Defines a three-layer infrastructure for AI agents: (1) hot-memory constitution (conventions), (2) specialized domain-expert agents, (3) cold-memory knowledge base (on-demand specs). Built with Claude Code across 283 sessions on a 108K-line C# system. **Key insight:** Over half of each spec's content is project-domain knowledge (codebase facts, patterns, failure modes), not behavioral instructions. **Closest to our Layer 1+3 concept.**
+
+**[codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp)** — Open source MCP server. Parses codebases into a persistent knowledge graph using tree-sitter (66 languages). 14 MCP tools including `search_graph`, `trace_call_path`, `get_architecture`. Achieves 99.2% token reduction vs file-by-file exploration. Indexes Linux kernel (28M lines) in 3 minutes. **Limitation:** Indexes code structure (functions, classes, imports, call chains) but has no concept of architectural boundaries, data flows, or component ownership. It's a query backend, not an architecture tool.
+
+**[Structurizr + C4 Model](https://structurizr.com/)** — Architecture-as-code using Structurizr DSL. Now has an [MCP server](https://github.com/structurizr) for AI agent integration. LLM agents can parse and generate C4 models. Research shows [multi-agent C4 generation](https://arxiv.org/abs/2510.22787) is feasible. **Limitation:** Requires manual DSL authoring (no auto-discovery from code). Designed for human architects, not LLM consumption.
+
+### 2.2 Partial Overlaps
+
+**[Swark](https://github.com/swark-io/swark)** — VS Code extension that auto-generates Mermaid architecture diagrams from code using LLMs (via Copilot API). Sends code files as prompt context, LLM infers component structure. **Limitation:** One-shot diagram generation, no persistent graph, no boundary enforcement, non-deterministic (LLM does all inference).
+
+**[Aider repo-map](https://aider.chat/) / [RepoMapper MCP](https://mcpservers.org/servers/pdavis68/RepoMapper)** — Builds a ranked map of code elements using tree-sitter + PageRank. Helps LLMs find relevant code efficiently. **Limitation:** File/function-level, not architectural. No components, boundaries, or flows.
+
+**[graphify](https://github.com/safishamsi/graphify)** — Claude Code skill that turns code into a queryable knowledge graph. Claims 71.5x fewer tokens per query. **Limitation:** Similar to codebase-memory-mcp — structural code graph, not architectural.
+
+**Architecture Fitness Functions ([ArchUnit](https://www.archunit.org/), [Dependency-Cruiser](https://github.com/nicedoc/dependency-cruiser))** — Enforce architectural rules as executable tests. ArchUnit (Java) tests package dependencies, naming conventions, class relationships. Dependency-Cruiser (JS/TS) validates import rules. Emerging work on [LLM-generated fitness functions from ADL](https://lukasniessen.medium.com/fitness-functions-automating-your-architecture-decisions-08b2fe4e5f34). **Limitation:** Rule-based, not graph-based. Must be manually written. No LLM integration yet (only LLM generation of rules).
+
+**[Augment Code Context Engine](https://www.augmentcode.com/)** — Commercial tool using semantic dependency analysis to build a graph of codebase architecture across repositories. **Limitation:** Proprietary, cloud-hosted, not self-hostable or customizable.
+
+### 2.3 Research & Ideas
+
+**[Toward Architecture-Aware Evaluation Metrics for LLM Agents](https://arxiv.org/abs/2601.19583)** — Proposes metrics for evaluating whether LLM agents respect architectural constraints. Confirms the problem space is recognized academically.
+
+**Token waste is quantified:** [Multiple sources](https://medium.com/@jakenesler/context-compression-to-reduce-llm-costs-and-frequency-of-hitting-limits-e11d43a26589) report that 60-80% of tokens consumed by AI coding agents go toward figuring out where things are, not answering the actual question.
+
+**[AI-Assisted C4 from Code](https://www.workingsoftware.dev/ai-assisted-software-architecture-generating-the-c4-model-and-views-directly-from-code/)** — Practical guide for using Claude Code to analyze codebases and generate Structurizr DSL. Manual but demonstrates the workflow.
+
+### 2.4 Gaps — What Doesn't Exist Yet
+
+| Capability | Exists? | Closest |
+|-----------|---------|---------|
+| Auto-discover components from code | Partial | Swark (LLM-inferred), RIG (build-system only) |
+| Persistent queryable component graph | Yes | codebase-memory-mcp, but code-level not architecture-level |
+| Data flow modeling between components | No | — |
+| Boundary enforcement / drift detection | Partial | ArchUnit/Dep-Cruiser (manual rules), no LLM integration |
+| Token-efficient task-scoped context | No | Codified Context (manual specs), not compiled from graph |
+| Visual diagram for human validation | Partial | Swark (one-shot), Structurizr (manual DSL) |
+| Integrated discover + query + enforce + view | **No** | — |
+
+**The gap pathfinder v2 fills: an integrated tool that auto-discovers architecture, maintains it as a queryable graph, compiles task-scoped context, generates validation diagrams, and enforces boundaries — designed for LLM agent consumption, not human architects.**
+
+---
+
+## 3. Design Principles
 
 1. **Token efficiency above all.** Every token in context that isn't relevant to the current task is waste.
 2. **Auto-derive structure, manually confirm boundaries.** The graph should bootstrap from code. Humans correct it, not create it.
@@ -34,38 +84,38 @@ Additionally, neither provides a fast way for the **human** to validate the agen
 
 ---
 
-## 3. Four Knowledge Layers
+## 4. Four Knowledge Layers
 
 ### Layer 1: Conventions (CLAUDE.md)
-**What:** Coding rules, security mandates, build commands, naming patterns.  
-**Maintained by:** Humans.  
-**Loaded:** Auto-injected every session (keep lean — conventions only, no architecture prose).  
+**What:** Coding rules, security mandates, build commands, naming patterns.
+**Maintained by:** Humans.
+**Loaded:** Auto-injected every session (keep lean — conventions only, no architecture prose).
 **Changes rarely.** ~500-1000 tokens max.
 
 ### Layer 2: Structure (Pathfinder graph)
-**What:** Components, ownership, flows, code mappings, external systems.  
-**Maintained by:** Auto-derived from code + human-confirmed boundaries.  
-**Loaded:** On demand, sliced by task.  
+**What:** Components, ownership, flows, code mappings, external systems.
+**Maintained by:** Auto-derived from code + human-confirmed boundaries.
+**Loaded:** On demand, sliced by task.
 **Changes when code changes.** Validated continuously.
 
 ### Layer 3: Task Context (compiled on demand)
-**What:** The intersection of Layer 1 + Layer 2 relevant to the current task.  
-**Maintained by:** Generated, not stored.  
-**Loaded:** Once at task start.  
+**What:** The intersection of Layer 1 + Layer 2 relevant to the current task.
+**Maintained by:** Generated, not stored.
+**Loaded:** Once at task start.
 **Disposable.** ~200-500 tokens.
 
 ### Layer 4: Embedded Viewing (visual validation)
-**What:** Token-efficient diagrams (SVG/Mermaid) of flows, boundaries, and component relationships.  
-**Purpose:** Human validates agent's understanding, catches misclassifications, corrects boundaries.  
+**What:** Token-efficient diagrams (SVG/Mermaid) of flows, boundaries, and component relationships.
+**Purpose:** Human validates agent's understanding, catches misclassifications, corrects boundaries.
 **Generated on demand.** Supports iterative refinement ("OpenAPI should be a datasource, not a service").
 
 ---
 
-## 4. Proposed API
+## 5. Proposed API
 
 Replace 25+ CLI commands with a semantic API designed for LLM consumption.
 
-### 4.1 Context Loading
+### 5.1 Context Loading
 
 ```
 pathfinder context <task-description>
@@ -100,18 +150,14 @@ Conventions:
 
 Single call. ~300 tokens. Everything the agent needs.
 
-**Implementation complexity: MEDIUM.** Requires:
-- Keyword/file-path matching to identify relevant components
-- Graph traversal (1-2 hops from matched components)
-- Convention extraction from CLAUDE.md by component tags
-- Template-based output formatting
+**Implementation options:**
+- (a) **File-path matching** — if user mentions a file, resolve its component from code mapping, BFS 1-2 hops for related components. Works today with existing graph. **LOW effort.**
+- (b) **Keyword-to-component matching** — map task keywords to component names/specs. **MEDIUM effort.**
+- (c) **LLM-assisted task parsing** — ask an LLM to identify relevant components from the task description. More accurate, higher latency. **MEDIUM-HIGH effort.**
 
-**Options:**
-- (a) Simple keyword-to-component mapping + BFS graph traversal — works today
-- (b) LLM-assisted task parsing to identify components — more accurate, higher cost
-- (c) File-path based: if the user is editing `gaia_job_processor/`, resolve component from code mapping — most reliable
+**Recommendation:** Start with (a), add (b) as enhancement. Skip (c) — it costs the tokens we're trying to save.
 
-### 4.2 Impact Analysis
+### 5.2 Impact Analysis
 
 ```
 pathfinder impact <file-or-component>
@@ -119,53 +165,25 @@ pathfinder impact <file-or-component>
 
 Returns what depends on this component, what it depends on, and what flows through it.
 
-**Example:**
-```bash
-$ pathfinder impact db_accessor.py
+**Implementation complexity: LOW.** Pure graph traversal on existing pathfinder data. Combine existing `dependents`/`deps`/`trace` commands into one output.
 
-Component: main-module/orchestrator
-Upstream: api-layer/client (Lambda invoke)
-Downstream: prozess-request/strategy (Lambda invoke)
-Also touches: common/llm (import), common/security (import)
-Flows through: 2 (main request flow, GAIA async flow)
-Risk: HIGH — routing hub, affects all database backends
-```
-
-**Implementation complexity: LOW.** Pure graph traversal on existing pathfinder data. The `dependents`/`deps`/`trace` commands already exist — this just combines them into one output.
-
-### 4.3 Boundary Check
+### 5.3 Boundary Check
 
 ```
 pathfinder check [--files <changed-files>]
 ```
 
-Validates that code changes respect component boundaries. Reports:
-- New imports that cross undeclared boundaries
-- Files that don't belong to any component
-- Flows that exist in code but not in the graph (drift)
+Validates that code changes respect component boundaries. Reports new imports that cross undeclared boundaries, unmapped files, and drift.
 
-**Example:**
-```bash
-$ pathfinder check --files api/code/api_cyd_client_v1/lambda_function.py
+**Implementation options:**
+- (a) **Regex-based import scanning on git diff** — fast, 80% accurate, misses dynamic imports. **MEDIUM effort.**
+- (b) **AST-based with tree-sitter** — accurate, needs per-language parsers. **HIGH effort.** (Note: codebase-memory-mcp already solves this for 66 languages — could reuse their parser)
+- (c) **LSP integration** — most accurate, complex setup. **VERY HIGH effort.**
+- (d) **Hybrid:** Regex on diff for CI, tree-sitter for deep analysis. **MEDIUM effort.**
 
-OK: api-layer/client
-  Imports common.security -> common/security (declared flow)
-  Imports common.llmapi_2_0_factory -> common/llm (declared flow)
-WARN: Imports main_module.chat_history -> main-module/orchestrator (NO declared flow)
-```
+**Recommendation:** Start with (a) for immediate value. Evaluate integrating codebase-memory-mcp's tree-sitter parsing for (b) later.
 
-**Implementation complexity: HIGH.** Requires:
-- AST parsing (Python imports, TypeScript imports) to extract actual dependencies
-- Comparison against declared flows in the graph
-- Needs to handle dynamic imports, conditional imports, test-only imports
-
-**Options:**
-- (a) Simple regex-based import scanning — fast, 80% accurate, misses dynamic imports
-- (b) AST-based with tree-sitter — accurate, language-specific parsers needed
-- (c) LSP integration — most accurate, reuses existing language servers, but complex setup
-- (d) **Pragmatic middle ground:** Run on `git diff` output only, regex-based, flag unknowns for human review
-
-### 4.4 Visual Generation
+### 5.4 Visual Generation
 
 ```
 pathfinder view [<component-or-flow>] [--format svg|mermaid]
@@ -174,205 +192,154 @@ pathfinder view [<component-or-flow>] [--format svg|mermaid]
 Generates a token-efficient diagram for human validation.
 
 **Modes:**
-- `pathfinder view` — full system context diagram (like the SVG we built)
+- `pathfinder view` — full system context diagram
 - `pathfinder view gaia` — focused component diagram with its flows
 - `pathfinder view --trace frontend prozess-request` — end-to-end flow diagram
 - `pathfinder view --externals` — external systems and their touchpoints
 
-**Example output (Mermaid, for inline rendering):**
-```mermaid
-graph TD
-  EXT_GAIA[ext/gaia] -->|POST| API_GAIA[api-layer/gaia]
-  API_GAIA -->|SQS| JOB[gaia/job-processor]
-  JOB -->|Lambda| PR[prozess-request]
-  JOB -->|result| GW[gaia/message-gateway]
-  GW -->|ToolsSDK| EXT_GAIA
-  style EXT_GAIA fill:#e1d5e7,stroke:#9673a6
-  style JOB fill:#fff2cc,stroke:#d6b656
-```
+**Implementation options:**
+- (a) **Mermaid-only** — trivial, renders in any markdown viewer. **LOW effort.**
+- (b) **Mermaid + DOT export** — let Graphviz handle layout. **LOW effort.**
+- (c) **SVG templates per diagram type** — high quality, labor-intensive. **HIGH effort.**
+- (d) **Delegate SVG to LLM agent** — already proven in this session. **Zero tool effort.**
 
-**Why this matters:** The human sees a diagram, spots that a boundary is wrong ("OpenAPI isn't a service, it's a datasource"), and corrects it immediately. Much faster than reading component lists.
-
-**Implementation complexity: LOW-MEDIUM.**
-- Mermaid generation from graph data is straightforward (template + traversal)
-- SVG generation is harder (layout algorithm needed, or use the style guide templates)
-- Could delegate SVG to the LLM agent (it already knows how, as this session proved)
-
-**Options:**
-- (a) Mermaid-only — trivial to implement, renders in any markdown viewer
-- (b) Mermaid + DOT export (existing) — let external tools (Graphviz) handle layout
-- (c) SVG templates per diagram type — high quality but labor-intensive to maintain
-- (d) **Recommended:** Mermaid for quick validation, delegate full SVG to the agent when needed
+**Recommendation:** (a) Mermaid for quick validation built into the CLI. (d) Delegate full SVG to the agent when higher quality is needed.
 
 ---
 
-## 5. Auto-Discovery (Bootstrapping)
+## 6. Auto-Discovery (Bootstrapping)
 
 ### The v1 Problem
-Discovery required 60+ manual CLI calls: `add`, `set --spec`, `map --glob`, `flow-add` for every component. This is unsustainable.
+Discovery required 60+ manual CLI calls. Unsustainable.
 
-### v2 Approach: Analyze, Propose, Confirm
+### Lessons from Existing Tools
+
+| Tool | Approach | What it gets right | What it misses |
+|------|----------|-------------------|----------------|
+| RIG/SPADE | Deterministic extraction from build artifacts | Reliable, evidence-based | Only build structure, not logical boundaries |
+| Swark | LLM infers everything from code | Flexible, any language | Non-deterministic, no persistence |
+| codebase-memory-mcp | tree-sitter AST + Louvain clustering | Fast, 66 languages, persistent | Code-level not architecture-level |
+| Structurizr | Manual DSL | Precise, validated | No auto-discovery |
+
+### v2 Approach: Hybrid — Deterministic Foundation + Human Confirmation
 
 ```
 pathfinder discover [--root <path>]
 ```
 
-**Phase 1 — Automatic analysis (no human input):**
-- Scan directory structure for architectural patterns (layered, feature-based, monorepo)
-- Parse entry points and trace import graphs
+**Phase 1 — Automatic analysis (deterministic, no LLM needed):**
+- Scan directory structure for architectural patterns
+- Parse imports with tree-sitter (reuse codebase-memory-mcp approach)
 - Detect framework conventions (Lambda handlers, FastAPI routers, Angular modules)
 - Identify external system calls (boto3 clients, HTTP clients, DB drivers)
-- Read existing CLAUDE.md or README for naming hints
+- Read existing CLAUDE.md for naming hints
 
-**Phase 2 — Propose and confirm:**
-- Generate a Mermaid diagram of the proposed component hierarchy
+**Phase 2 — Propose and confirm (visual):**
+- Generate a Mermaid diagram of the proposed hierarchy
 - Present to human: "Here's what I found. What's wrong?"
-- Human corrects: "GAIA is external, not internal" / "Merge these two components"
+- Human corrects via diagram, not YAML
 - Apply corrections in one batch
 
 **Phase 3 — Map and validate:**
-- Auto-map all source files to components based on directory ownership
-- Flag ambiguous files for human decision
-- Run `validate` and report any structural issues
+- Auto-map all source files based on directory ownership
+- Flag ambiguous files
+- Run `validate`
 
 **Implementation complexity: MEDIUM-HIGH.**
 
-**The hard parts:**
-- Import graph analysis across languages (Python + TypeScript + Terraform HCL)
-- Distinguishing external systems from internal AWS services
-- Choosing the right granularity (too many components = noise, too few = useless)
-
-**Options:**
-- (a) Rule-based heuristics per framework — Lambda dirs → components, `boto3.client('x')` → external. Covers 80% of cases. Moderate effort.
-- (b) LLM-assisted analysis — Feed directory tree + key file samples to an LLM, ask it to propose components. Flexible but non-deterministic.
-- (c) **Hybrid (recommended):** Rule-based detection for structure + file mapping, LLM-assisted for naming, boundary decisions, and external classification. Human confirms via visual diagram.
+**Recommendation:** Rule-based heuristics for Phase 1 (directories, imports, framework patterns). Mermaid output for Phase 2. One-command batch apply for Phase 3.
 
 ---
 
-## 6. Maintaining Structure Over Time
+## 7. Maintaining Structure Over Time
 
-### The Core Problem
-Architecture graphs rot. Code evolves, components shift, new flows appear — but nobody updates the graph.
-
-### Option A: CI/CD Drift Detection (recommended)
-
-Add `pathfinder check` to the CI pipeline:
+### Option A: Pre-commit Hook (recommended start)
 
 ```yaml
-# In buildspec or GitHub Actions
-- name: Architecture check
-  run: pathfinder check --files $(git diff --name-only origin/main)
-```
-
-Reports warnings (not blocking) when:
-- A modified file imports across an undeclared boundary
-- A new file has no component owner
-- A deleted file was the last file in a component (orphan)
-
-**Complexity: MEDIUM.** Regex-based import scanning on diff output is feasible. Full AST analysis is harder but not required for a warning system.
-
-### Option B: Pre-commit Hook
-
-```bash
 # .pre-commit-config.yaml
 - repo: local
   hooks:
     - id: pathfinder-check
-      name: Architecture boundary check
       entry: pathfinder check --files
-      language: system
       pass_filenames: true
 ```
 
-Same as Option A but runs locally before commit. Faster feedback loop.
+Regex-based import scanning on changed files. Warns on undeclared cross-boundary imports. **LOW effort** once `check` is implemented.
 
-**Complexity: LOW** (once `check` is implemented).
+### Option B: CI/CD Integration
+
+Same as Option A but runs in pipeline. Team-wide enforcement. **LOW incremental effort.**
 
 ### Option C: Agent-Driven Sync
 
-After each significant change, the agent runs:
-```
-pathfinder sync
-```
-
-Which:
-1. Scans for new/moved/deleted files
-2. Updates code mappings automatically
-3. Detects new import patterns that suggest undeclared flows
-4. Proposes graph updates for human confirmation
-
-**Complexity: MEDIUM.** File scanning is easy. Detecting new flows from imports requires the same analysis as `check`.
-
-### Option D: Periodic Re-discovery
-
-Schedule `pathfinder discover --update` (e.g., weekly or per-sprint) to re-analyze the codebase and propose graph updates. Less granular than CI-based but lower maintenance.
-
-**Complexity: LOW** (reuses discover logic).
+After significant changes, agent runs `pathfinder sync` to detect new/moved/deleted files and propose graph updates. **MEDIUM effort.**
 
 ### Recommendation
-
-Start with **Option B** (pre-commit hook with regex-based scanning) for immediate value, evolve to **Option A** (CI/CD) for team-wide enforcement.
+Start with **Option A** (pre-commit), evolve to **Option B** (CI/CD). Option C is nice-to-have.
 
 ---
 
-## 7. CLI Ergonomics (v1 Bug Fixes)
+## 8. CLI Ergonomics (v1 Bug Fixes)
 
-Issues discovered in this session that must be fixed regardless of v2 scope:
+Must-fix regardless of v2 scope:
 
 | # | Issue | Fix |
 |---|-------|-----|
-| 1 | `add` takes positional TYPE NAME, no `--spec` | Add `--spec` flag to `add` for one-command creation |
-| 2 | `set` doesn't resolve slash-name IDs | Unify ID resolution across all commands (slash or dot) |
-| 3 | `map --glob` broken by shell expansion on Windows | Accept directory paths natively, or escape globs internally |
-| 4 | Unicode arrow `→` crashes on Windows cp1252 | Use ASCII `->` or set encoding in CLI |
-| 5 | `show` without args fails | Make `show` (no args) display the full component tree |
-| 6 | No `flow-remove` or `flow-update` command | Add flow mutation commands |
-| 7 | No `--external` classification guidance in skill | Document external vs internal in discovery procedure |
+| 1 | `add` has no `--spec` flag | Add `--spec` to `add` for one-command creation |
+| 2 | `set` doesn't resolve slash-name IDs | Unify ID resolution across all commands |
+| 3 | `map --glob` broken by shell expansion on Windows | Accept directory paths natively |
+| 4 | Unicode `->` crashes on Windows cp1252 | Use ASCII or set encoding in CLI |
+| 5 | `show` without args fails | Display full tree when no arg given |
+| 6 | No `flow-remove` or `flow-update` | Add flow mutation commands |
+| 7 | No external component guidance in skill | Document external vs internal |
 
 ---
 
-## 8. Implementation Roadmap
+## 9. Implementation Roadmap
 
 ### Phase 1: Fix v1 + Quick Wins (1-2 weeks)
-
-- Fix all 7 CLI bugs from section 7
-- Add `pathfinder view` with Mermaid output (template-based, LOW effort)
-- Add `--spec` to `add` command
-- Add `flow-remove` command
+- Fix all 7 CLI bugs
+- Add `pathfinder view` with Mermaid output
+- Add `flow-remove`, `--spec` on `add`
 - Update discovery skill to match actual CLI syntax
 
 **Delivers:** Usable v1 with visual validation.
 
 ### Phase 2: Context Compiler (2-3 weeks)
-
-- Implement `pathfinder context <task>` with file-path-based component resolution
-- Implement `pathfinder impact <file>` (graph traversal, combine existing commands)
+- Implement `pathfinder context` (file-path-based component resolution + BFS)
+- Implement `pathfinder impact` (graph traversal)
 - Convention extraction from CLAUDE.md by component tags
-- Single-call focused output format
 
-**Delivers:** Token-efficient context loading. The biggest agent productivity gain.
+**Delivers:** Token-efficient context loading — the biggest agent productivity gain.
 
 ### Phase 3: Auto-Discovery (2-4 weeks)
-
 - Rule-based directory/import scanner for Python + TypeScript + Terraform
-- Auto-propose component hierarchy with Mermaid diagram
-- Interactive confirm-and-apply flow
-- Auto-mapping of files to components
+- Mermaid diagram proposal for human confirmation
+- One-command batch creation
 
 **Delivers:** 5-minute setup instead of 60+ CLI calls.
 
 ### Phase 4: Guardrails (2-3 weeks)
-
 - `pathfinder check` with regex-based import scanning
 - Pre-commit hook integration
-- CI/CD integration template
-- Drift reporting (warnings, not blockers)
+- CI/CD template
 
-**Delivers:** Architecture enforcement. The long-term value.
+**Delivers:** Architecture enforcement.
 
 ---
 
-## 9. Success Metrics
+## 10. Potential Integrations
+
+| Tool | Integration Point | Value |
+|------|------------------|-------|
+| codebase-memory-mcp | Reuse tree-sitter parsing for auto-discovery and boundary checking | Avoid rebuilding 66-language parser |
+| Structurizr MCP | Export pathfinder graph as Structurizr DSL for C4 diagrams | Higher-quality diagrams for documentation |
+| ArchUnit / Dep-Cruiser | Generate fitness function rules from pathfinder boundaries | Executable architecture tests |
+| RIG/SPADE | Import build structure as foundation for component graph | Deterministic build-aware components |
+
+---
+
+## 11. Success Metrics
 
 | Metric | v1 (current) | v2 Target |
 |--------|-------------|-----------|
@@ -384,14 +351,14 @@ Issues discovered in this session that must be fixed regardless of v2 scope:
 
 ---
 
-## 10. Open Questions
+## 12. Open Questions
 
-1. **Should pathfinder own conventions too?** Or keep CLAUDE.md separate and just reference it? Merging gives one source of truth; separating keeps concerns clean.
+1. **Should pathfinder own conventions too?** Or keep CLAUDE.md separate? The "Codified Context" paper suggests a unified hot-memory constitution. Merging gives one source of truth; separating keeps concerns clean.
 
-2. **Language support priority.** Python is primary. TypeScript (frontend) is secondary. Terraform HCL is useful for infra components. What's the minimum viable set?
+2. **Reuse codebase-memory-mcp?** Its tree-sitter parsing and knowledge graph could be a foundation layer, with pathfinder adding architectural semantics (boundaries, flows, ownership) on top. Evaluate whether integration is practical vs. building from scratch.
 
-3. **LLM-in-the-loop for discovery.** How much should the agent assist in discovery vs. pure rule-based? LLM is more flexible but non-deterministic and costs tokens.
+3. **Language support priority.** Python is primary. TypeScript (frontend) is secondary. Terraform HCL for infra components. What's the minimum viable set?
 
-4. **Graph storage format.** Current YAML-per-component is simple but requires rebuilding `index.json`. Consider SQLite or a single JSON file for atomic reads.
+4. **Graph storage format.** Current YAML-per-component works but requires index rebuild. Consider SQLite (like codebase-memory-mcp) for atomic queries.
 
-5. **Integration with IDE.** Should `pathfinder view` open in browser/IDE? Or is inline Mermaid in the terminal sufficient?
+5. **MCP server vs CLI?** Should pathfinder v2 be an MCP server (like codebase-memory-mcp) rather than a CLI? MCP would integrate natively with Claude Code, Cursor, etc. without shell overhead.
