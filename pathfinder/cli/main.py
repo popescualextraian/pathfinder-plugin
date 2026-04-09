@@ -21,6 +21,7 @@ from pathfinder.cli.export_cmd import export_cmd
 from pathfinder.cli.depend_cmd import depend_cmd
 from pathfinder.cli.contract_cmd import contract_add_cmd, contract_remove_cmd
 from pathfinder.cli.install_cmd import install_cmd
+from pathfinder.cli.help_cmd import help_cmd
 
 
 @click.group()
@@ -56,6 +57,7 @@ cli.add_command(depend_cmd)
 cli.add_command(contract_add_cmd)
 cli.add_command(contract_remove_cmd)
 cli.add_command(install_cmd)
+cli.add_command(help_cmd)
 
 
 if __name__ == "__main__":
