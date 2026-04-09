@@ -71,9 +71,15 @@ def load_component(project_root: Path, component_id: str) -> dict:
     _assert_initialized(project_root)
     comp_dir = get_component_dir(project_root, component_id)
     file_path = comp_dir / "_component.yaml"
-    if not file_path.exists():
-        raise FileNotFoundError(f"Component '{component_id}' not found at {file_path}")
-    return yaml.safe_load(file_path.read_text())
+    if file_path.exists():
+        return yaml.safe_load(file_path.read_text())
+    # Fallback: scan all component files for a matching ID.
+    # Handles cases where the file location doesn't match _id_to_path.
+    for f in find_all_component_files(project_root):
+        data = yaml.safe_load(f.read_text())
+        if data and data.get("id") == component_id:
+            return data
+    raise FileNotFoundError(f"Component '{component_id}' not found at {file_path}")
 
 
 def save_component(project_root: Path, component: dict) -> None:
@@ -127,32 +133,39 @@ def load_all_components(project_root: Path) -> list[dict]:
 def resolve_component_id(project_root: Path, component_id: str) -> str:
     """Resolve a component ID, accepting both dot and slash notation.
 
-    When the ID contains '/', the dot-normalized form is tried first so the
-    canonical dot-notation ID is always returned. Falls back to the original
-    slash form if the dot form doesn't exist. Raises FileNotFoundError (with a
-    helpful message) if neither attempt succeeds.
+    Resolution order:
+    1. Direct lookup (filesystem fast-path, with scan fallback in load_component)
+    2. Slash→dot normalization
+    3. Hierarchical path decomposition — if the user types "parent/child" and
+       the actual ID is "child" with parent="parent", resolve to "child"
     """
+    # Build candidate IDs: dot-normalized first, then original
+    candidates = []
     if "/" in component_id:
-        dot_id = component_id.replace("/", ".")
+        candidates.append(component_id.replace("/", "."))
+    candidates.append(component_id)
+
+    # Try each candidate via load_component (which includes scan fallback)
+    for cid in candidates:
         try:
-            load_component(project_root, dot_id)
-            return dot_id
+            load_component(project_root, cid)
+            return cid
         except FileNotFoundError:
             pass
-        # Try the original slash form (may work on some file systems)
-        try:
-            load_component(project_root, component_id)
-            return component_id
-        except FileNotFoundError:
-            raise FileNotFoundError(
-                f"Component '{component_id}' not found (also tried '{dot_id}'). "
-                "Check the ID with 'pathfinder list'."
-            )
-    try:
-        load_component(project_root, component_id)
-        return component_id
-    except FileNotFoundError:
-        raise FileNotFoundError(
-            f"Component '{component_id}' not found. "
-            "Check the ID with 'pathfinder list'."
-        )
+
+    # Hierarchical fallback: "parent/child" or "parent.child" → look for
+    # a component whose ID is the leaf and whose parent matches the prefix.
+    sep = "/" if "/" in component_id else "."
+    parts = component_id.split(sep)
+    if len(parts) >= 2:
+        leaf = parts[-1]
+        parent_id = sep.join(parts[:-1]).replace("/", ".")
+        for comp in load_all_components(project_root):
+            if comp.get("id") == leaf and comp.get("parent") == parent_id:
+                return comp["id"]
+
+    tried = f" (also tried '{candidates[0]}')" if len(candidates) > 1 else ""
+    raise FileNotFoundError(
+        f"Component '{component_id}' not found{tried}. "
+        "Check the ID with 'pathfinder list'."
+    )

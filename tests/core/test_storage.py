@@ -187,6 +187,41 @@ class TestResolveComponentId:
         with pytest.raises(FileNotFoundError, match="does.not.exist"):
             resolve_component_id(test_dir, "does/not/exist")
 
+    def test_resolves_hierarchical_path_to_flat_id(self, test_dir):
+        """When component ID is 'gaia' with parent='api-layer', resolve 'api-layer/gaia'."""
+        save_component(test_dir, {
+            "id": "gaia",
+            "name": "Gaia",
+            "type": "service",
+            "status": "active",
+            "parent": "api-layer",
+        })
+        resolved = resolve_component_id(test_dir, "api-layer/gaia")
+        assert resolved == "gaia"
+
+    def test_resolves_hierarchical_dot_path_to_flat_id(self, test_dir):
+        """When component ID is 'gaia' with parent='api-layer', resolve 'api-layer.gaia'."""
+        save_component(test_dir, {
+            "id": "gaia",
+            "name": "Gaia",
+            "type": "service",
+            "status": "active",
+            "parent": "api-layer",
+        })
+        resolved = resolve_component_id(test_dir, "api-layer.gaia")
+        assert resolved == "gaia"
+
+    def test_load_component_scan_fallback(self, test_dir):
+        """load_component finds component even if file path doesn't match ID convention."""
+        # Manually write a component file at a non-standard location
+        weird_dir = test_dir / ".pathfinder" / "components" / "misplaced"
+        weird_dir.mkdir(parents=True)
+        (weird_dir / "_component.yaml").write_text(
+            "id: actual.id\nname: Misplaced\ntype: module\nstatus: active\n"
+        )
+        comp = load_component(test_dir, "actual.id")
+        assert comp["name"] == "Misplaced"
+
 
 class TestStandards:
     @pytest.fixture(autouse=True)
