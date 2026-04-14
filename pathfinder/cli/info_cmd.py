@@ -1,41 +1,60 @@
-"""Info command — project summary."""
+import subprocess
+from pathlib import Path
 
 import click
+import yaml
 
-from pathfinder.core.storage import load_config
-from pathfinder.core.index_builder import build_index
-from pathfinder.cli.utils import resolve_root
+
+def _container_status(name: str) -> str:
+    """Get container status string."""
+    result = subprocess.run(
+        ["docker", "inspect", "--format", "{{.State.Status}}", name],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return "not found"
+    return result.stdout.strip()
 
 
 @click.command("info")
-@click.option("--root", default=None, help="Project root directory")
-def info_cmd(root: str | None):
-    """Show project summary."""
-    project_root = resolve_root(root)
-    config = load_config(project_root)
-    index = build_index(project_root)
+@click.option(
+    "--root",
+    default=None,
+    type=click.Path(exists=True, file_okay=False),
+    help="Project root directory. Defaults to current directory.",
+)
+def info_cmd(root):
+    """Show Pathfinder project summary."""
+    project_root = Path(root) if root else Path.cwd()
+    pf_dir = project_root / ".pathfinder"
 
-    components = list(index["components"].values())
-    by_type: dict[str, int] = {}
-    tags: set[str] = set()
+    if not pf_dir.exists():
+        click.echo("No .pathfinder/ directory found. Run 'pathfinder init' first.")
+        return
 
-    for comp in components:
-        by_type[comp["type"]] = by_type.get(comp["type"], 0) + 1
-        for t in comp.get("tags", []):
-            tags.add(t)
+    # Read config
+    config_file = pf_dir / "config.yaml"
+    if config_file.exists():
+        config = yaml.safe_load(config_file.read_text()) or {}
+        click.echo(f"Project: {config.get('project_name', 'unknown')}")
+    else:
+        click.echo("Project: unknown (no config.yaml)")
 
-    click.echo(f"Project: {config['name']}")
-    click.echo(f"Components: {len(components)}")
-    click.echo(f"Data flows: {len(index['flows'])}")
+    # Workspace status
+    dsl_file = pf_dir / "workspace.dsl"
+    if dsl_file.exists():
+        size = dsl_file.stat().st_size
+        click.echo(f"Workspace: {dsl_file.name} ({size} bytes)")
+    else:
+        click.echo("Workspace: not found")
 
-    if by_type:
-        click.echo("\nBy type:")
-        for type_, count in by_type.items():
-            click.echo(f"  {type_}: {count}")
+    # Practices
+    practices_file = pf_dir / "practices.md"
+    click.echo(f"Practices: {'found' if practices_file.exists() else 'not found'}")
 
-    if tags:
-        click.echo(f"\nTags: {', '.join(sorted(tags))}")
-
-    repos = config.get("repos", {})
-    if repos:
-        click.echo(f"\nRepos: {', '.join(repos.keys())}")
+    # Docker containers
+    click.echo()
+    click.echo("Infrastructure:")
+    click.echo(f"  Structurizr Server: {_container_status('pathfinder-server')}")
+    click.echo(f"  MCP Server:         {_container_status('pathfinder-mcp')}")

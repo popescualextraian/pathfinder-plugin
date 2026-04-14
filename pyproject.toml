@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pathfinder"
-version = "0.1.0"
-description = "Pathfinder Plugin — architecture-first skills and agent for AI-driven development"
+version = "0.2.0"
+description = "Pathfinder — AI-driven architecture management using Structurizr and C4"
 requires-python = ">=3.12"
 dependencies = [
     "click>=8.1",

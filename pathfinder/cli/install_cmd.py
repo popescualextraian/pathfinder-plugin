@@ -1,83 +1,84 @@
-"""Install command — copy pathfinder skills and agent into a target project."""
-
+import json
 import shutil
 from pathlib import Path
 
 import click
 
-from pathfinder.cli.utils import resolve_root
 
-
-def _package_data_dir() -> Path:
-    """Return the directory containing bundled skills/agents inside the installed package."""
+def _package_dir() -> Path:
+    """Return the pathfinder package directory (where skills/ and agents/ live)."""
     return Path(__file__).resolve().parent.parent
 
 
+MCP_CONFIG = {
+    "structurizr": {
+        "command": "npx",
+        "args": ["mcp-remote", "http://localhost:3000/mcp"],
+    }
+}
+
+
 @click.command("install")
-@click.option("--root", default=None, help="Target project root directory")
-@click.option("--skills-dir", default=".claude/skills", help="Destination directory for skills (default: .claude/skills/)")
-@click.option("--agents-dir", default=".claude/agents", help="Destination directory for agents (default: .claude/agents/)")
-def install_cmd(root: str | None, skills_dir: str, agents_dir: str):
-    """Install pathfinder skills and agent into a project."""
-    project_root = Path(resolve_root(root))
-    pkg_dir = _package_data_dir()
+@click.option(
+    "--root",
+    default=None,
+    type=click.Path(exists=True, file_okay=False),
+    help="Project root directory. Defaults to current directory.",
+)
+def install_cmd(root):
+    """Install Pathfinder skills, agents, and MCP config into the target project."""
+    project_root = Path(root) if root else Path.cwd()
+    pkg_dir = _package_dir()
+    claude_dir = project_root / ".claude"
 
-    src_skills = pkg_dir / "skills"
-    src_agents = pkg_dir / "agents"
+    # --- Skills ---
+    skills_src = pkg_dir / "skills"
+    skills_dst = claude_dir / "skills"
+    skill_count = 0
 
-    if not src_skills.exists():
-        raise click.ClickException(
-            f"Bundled skills not found at {src_skills}. "
-            "Reinstall pathfinder: pip install pathfinder"
-        )
+    if skills_src.exists():
+        for skill_dir in sorted(skills_src.iterdir()):
+            if skill_dir.is_dir():
+                dst = skills_dst / skill_dir.name
+                if dst.exists():
+                    shutil.rmtree(dst)
+                shutil.copytree(skill_dir, dst)
+                skill_count += 1
 
-    dest_skills = project_root / skills_dir
-    dest_agents = project_root / agents_dir
+    # --- Agents ---
+    agents_src = pkg_dir / "agents"
+    agents_dst = claude_dir / "agents"
+    agent_count = 0
 
-    # Copy skills
-    copied_skills = []
-    for skill_src in sorted(src_skills.iterdir()):
-        if not skill_src.is_dir():
-            continue
-        skill_dest = dest_skills / skill_src.name
-        if skill_dest.exists():
-            shutil.rmtree(skill_dest)
-        shutil.copytree(skill_src, skill_dest)
-        copied_skills.append(skill_src.name)
+    if agents_src.exists():
+        agents_dst.mkdir(parents=True, exist_ok=True)
+        for agent_file in sorted(agents_src.iterdir()):
+            if agent_file.is_file() and agent_file.suffix == ".md":
+                dst = agents_dst / agent_file.name
+                shutil.copy2(agent_file, dst)
+                agent_count += 1
 
-    # Copy agents
-    copied_agents = []
-    if src_agents.exists():
-        dest_agents.mkdir(parents=True, exist_ok=True)
-        for agent_src in sorted(src_agents.iterdir()):
-            if not agent_src.is_file():
-                continue
-            agent_dest = dest_agents / agent_src.name
-            shutil.copy2(agent_src, agent_dest)
-            copied_agents.append(agent_src.name)
+    # --- MCP Server Config ---
+    settings_file = claude_dir / "settings.local.json"
+    settings = {}
+    if settings_file.exists():
+        try:
+            settings = json.loads(settings_file.read_text())
+        except (json.JSONDecodeError, OSError):
+            settings = {}
 
-    # Report
-    click.echo("Pathfinder installed successfully.\n")
-    click.echo(f"Skills ({len(copied_skills)}):")
-    for name in copied_skills:
-        click.echo(f"  {dest_skills / name}/")
-    if copied_agents:
-        click.echo(f"\nAgents ({len(copied_agents)}):")
-        for name in copied_agents:
-            click.echo(f"  {dest_agents / name}")
+    mcp_servers = settings.get("mcpServers", {})
+    mcp_servers.update(MCP_CONFIG)
+    settings["mcpServers"] = mcp_servers
 
-    # CLAUDE.md guidance
-    click.echo("\n--- Add to your project's CLAUDE.md ---\n")
-    click.echo("## Pathfinder\n")
-    click.echo("This project uses pathfinder for architecture-driven development.")
-    click.echo("The `pathfinder` CLI must be installed and on PATH (`pip install pathfinder`).\n")
-    click.echo("### Skills\n")
-    click.echo(f"Skills are in `{skills_dir}/` \u2014 Claude Code discovers them automatically.")
-    click.echo("- **pathfinder-discover** — onboard a codebase into pathfinder")
-    click.echo("- **pathfinder-define** — decompose requirements into components and flows")
-    click.echo("- **pathfinder-navigate** — load relevant architecture context for a task")
-    click.echo("- **pathfinder-implement** — TDD implementation within component boundaries")
-    click.echo("- **pathfinder-check** — architecture health checks and impact analysis\n")
-    click.echo("### Agent\n")
-    click.echo(f"The system architect agent is in `{agents_dir}/system-architect.md`.")
-    click.echo("It bridges business requirements to component-scoped implementation tasks.")
+    settings_file.parent.mkdir(parents=True, exist_ok=True)
+    settings_file.write_text(json.dumps(settings, indent=2) + "\n")
+
+    click.echo(f"Installed into {claude_dir}:")
+    click.echo(f"  {skill_count} skills")
+    click.echo(f"  {agent_count} agents")
+    click.echo(f"  MCP server config (Structurizr at localhost:3000)")
+    click.echo()
+    click.echo("Next steps:")
+    click.echo("  pathfinder init --name <project>   # If not done already")
+    click.echo("  pathfinder start                    # Start Docker containers")

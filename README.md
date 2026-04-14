@@ -1,59 +1,60 @@
 # Pathfinder
 
-Architecture-driven development plugin for AI coding tools. Install into any project to give Claude Code or Copilot a structured understanding of your system — components, data flows, contracts, and code mappings.
+AI-driven architecture management using **Structurizr** and the **C4 model**. Install into any project to give Claude Code a structured understanding of your system — visualized, documented, and maintained through agents and skills.
 
 ## How it works
 
-Pathfinder adds **five skills** and an **architect agent** to your project. The skills teach your AI coding tool to think architecturally — decomposing work by component boundaries instead of feature specs. A CLI maintains the architecture graph underneath, but you interact through skills, not commands.
+Pathfinder adds **two agents** and **two skills** to your project. The agents manage architecture — one for initial discovery, one for ongoing design. The skills provide focused capabilities that agents and users invoke. All model operations go through the **Structurizr MCP Server**; the **Structurizr Server** provides visualization at `localhost:8080`.
 
 ```
-Business requirement
-  → Architect agent (navigate → impact analysis → decompose → define contracts)
-    → Implementation tasks (one per component, leaf-first)
-      → pathfinder-implement skill (TDD within component boundaries)
-        → pathfinder-check (verify after changes)
+Flow 1: Init
+  User starts Init Agent in fresh context
+    → Scans codebase → Builds C4 model via MCP → Maps all code → Visual review
+
+Flow 2: Design
+  User provides business requirement (+ specs, mocks, etc.)
+    → Architect Agent → Context skill extracts relevant slice
+    → Explore alternatives → Before/after visualization → Update model
+    → Produce implementation spec
 ```
+
+### Agents
+
+| Agent | What it does |
+|-------|-------------|
+| **Init Agent** | Scans an existing codebase, builds the complete C4 model + documentation, maps every source file to a component |
+| **System Architect** | Takes business requirements, extracts architectural context, explores alternatives, produces implementation specs |
 
 ### Skills
 
 | Skill | What it does |
 |-------|-------------|
-| **pathfinder-discover** | Analyze an existing codebase and generate the component map |
-| **pathfinder-define** | Decompose requirements into components, contracts, and flows |
-| **pathfinder-navigate** | Load only the relevant architectural slice for a task |
-| **pathfinder-implement** | TDD implementation scoped to component boundaries |
-| **pathfinder-check** | Health checks, drift detection, and impact analysis |
-
-### System Architect Agent
-
-The architect agent bridges business requirements to component-scoped implementation tasks. It navigates the current architecture, runs impact analysis, decomposes work into component changes, defines contracts first, and sequences tasks leaf-first. It designs and delegates — it does not write code.
+| **pathfinder-context** | Subagent that reads the full workspace and returns only the relevant architectural slice |
+| **pathfinder-review** | Interactive review: walks through each C4 level with the user, collects corrections, iterates |
 
 ## Installation
 
-Requires **Python 3.12+**.
+Requires **Python 3.12+** and **Docker**.
 
 ```bash
-pip install --no-cache-dir --force-reinstall git+https://github.com/popescualextraian/pathfinder-plugin.git
+pip install git+https://github.com/popescualextraian/pathfinder-plugin.git
 ```
 
 ## Setting up a project
 
-Pathfinder is installed **into** each project that uses it:
-
 ```bash
-# 1. Install skills and architect agent into your project
+# 1. Install skills, agents, and MCP config into your project
 pathfinder install
 
-# 2. Initialize the architecture graph
+# 2. Initialize the architecture directory
 pathfinder init --name my-project
-```
 
-`pathfinder install` copies skills into `.claude/skills/` and the architect agent into `.claude/agents/`. It also prints a CLAUDE.md snippet to add to your project so Claude Code discovers the skills automatically.
+# 3. Start Structurizr Server + MCP
+pathfinder start
 
-### Custom directories
+# 4. (Recommended) Run Claude /init for codebase context, then start fresh session
 
-```bash
-pathfinder install --skills-dir custom/skills --agents-dir custom/agents
+# 5. Invoke the Init Agent to build the architecture model
 ```
 
 ### What gets installed
@@ -62,149 +63,64 @@ pathfinder install --skills-dir custom/skills --agents-dir custom/agents
 your-project/
   .claude/
     skills/
-      pathfinder-discover/SKILL.md
-      pathfinder-define/SKILL.md
-      pathfinder-navigate/SKILL.md
-      pathfinder-implement/SKILL.md
-      pathfinder-check/SKILL.md
+      pathfinder-context/SKILL.md
+      pathfinder-review/SKILL.md
     agents/
+      init-agent.md
       system-architect.md
-  .pathfinder/                    # Created by pathfinder init
-    config.yaml
-    components/
-    index.json
+    settings.local.json              # MCP server config added
+  .pathfinder/                       # Created by pathfinder init
+    workspace.dsl                    # Structurizr DSL (source of truth)
+    config.yaml                      # Project config
+    practices.md                     # Architectural best practices (customize this)
 ```
-
-## Typical workflow
-
-### 1. Onboard an existing codebase
-
-Use the **pathfinder-discover** skill. It analyzes your project structure and generates the initial component map — systems, services, libraries, and their relationships.
-
-### 2. Design changes architecturally
-
-When a new requirement arrives, the **architect agent** takes over:
-- Navigates the current architecture to understand the affected area
-- Runs impact analysis to determine blast radius
-- Decomposes the requirement into component-scoped changes
-- Defines contracts before any implementation starts
-- Sequences tasks by dependency (leaf components first)
-
-### 3. Implement within boundaries
-
-Each implementation task targets a single component. The **pathfinder-implement** skill:
-- Loads the component's spec and contracts
-- Writes tests first (TDD)
-- Implements until tests pass
-- Maps code back to the component
-
-### 4. Verify after changes
-
-The **pathfinder-check** skill detects drift, validates structural integrity, and confirms contracts are satisfied.
 
 ## Architecture model
 
-The graph the skills operate on:
+The model uses the **C4 standard** (System Context → Container → Component) stored as **Structurizr DSL**:
 
-- **Components** — nodes in a hierarchical DAG. Each has an id (dot-notation like `payment.gateway`), type (advisory), status, spec (free-form), contracts (free-form), data flows, code mappings, tags, and structural dependencies.
-- **Data flows** — what data moves between components, via which protocol, in which pattern (request/response, publish/subscribe).
-- **Contracts** — what a component accepts and produces. Free-form text that AI agents interpret, not rigid schemas.
-- **Code mappings** — glob patterns linking source files to components. Supports multiple repos.
+- **Workspace** — managed by Structurizr Server, versioned in git as `.pathfinder/workspace.dsl`
+- **Code mappings** — `code_path` properties on C4 elements (glob patterns linking source files to components)
+- **Documentation** — Markdown sections and ADRs rendered alongside diagrams in Structurizr Server
+- **Visualization** — interactive diagrams at `http://localhost:8080`
 
-Everything is stored in `.pathfinder/` as YAML (source of truth) with a generated `index.json` for fast graph queries.
+All model operations go through the Structurizr MCP Server — agents never edit DSL files directly.
 
 ## CLI reference
 
-The CLI maintains the architecture graph. Skills call these commands under the hood — you typically don't need to run them directly.
-
-### Project
+The CLI is thin infrastructure. All model operations go through MCP.
 
 | Command | Description |
 |---------|-------------|
-| `install [--skills-dir DIR] [--agents-dir DIR]` | Install skills and agent into a project |
-| `init --name NAME` | Initialize `.pathfinder/` |
-| `info` | Project summary (counts by type, tags, flows) |
-| `standards` | Show architectural standards |
+| `pathfinder init --name NAME` | Create `.pathfinder/` with config, practices, template DSL |
+| `pathfinder install` | Copy skills + agents to `.claude/`, configure MCP server |
+| `pathfinder start [--port PORT]` | Start Structurizr Server + MCP Docker containers |
+| `pathfinder stop` | Stop both containers |
+| `pathfinder info` | Project summary (workspace status, container status) |
 
-### Components
+All commands accept `--root DIR` (defaults to cwd).
 
-| Command | Description |
-|---------|-------------|
-| `add TYPE NAME [--parent ID] [--external]` | Add a component |
-| `set ID [--status S] [--type T] [--tag T] [--remove-tag T] [--spec TEXT] [--spec-file FILE]` | Update fields |
-| `remove ID [--force] [--dry-run]` | Remove a component and its children |
-| `move ID --parent NEW_PARENT` | Move under a new parent |
+## Best practices config
 
-### Viewing and search
+`.pathfinder/practices.md` contains architectural principles that the Architect Agent follows. Edit it to add project-specific rules:
 
-| Command | Description |
-|---------|-------------|
-| `list [--level N]` | Component tree |
-| `show ID [--contracts]` | Component details |
-| `children ID` | Direct children |
-| `search [QUERY] [--tag T] [--type T] [--status S]` | Search components |
+```markdown
+# Architectural Practices
 
-### Dependencies and data flows
+## Principles
+- KISS — prefer the simplest solution
+- Single Responsibility — each component has one clear purpose
 
-| Command | Description |
-|---------|-------------|
-| `deps ID` | What a component depends on |
-| `dependents ID` | What depends on a component |
-| `depend ID TARGET [--remove]` | Add/remove structural dependency |
-| `flows [ID]` | Data flows (all or per component) |
-| `flow-add FROM TO --data DESC [--protocol P] [--pattern P]` | Add a data flow |
-| `trace FROM TO` | Trace path between components |
-
-### Code mappings
-
-| Command | Description |
-|---------|-------------|
-| `map ID --glob PATTERN [--repo REPO]` | Map files to a component |
-| `mapped FILE` | Find which component owns a file |
-| `unmapped` | Components with no code mappings |
-
-### Contracts
-
-| Command | Description |
-|---------|-------------|
-| `contract-add ID --input/--output --name N --format F [--source S] [--target T] [--version V]` | Add a contract |
-| `contract-remove ID --name N` | Remove a contract |
-
-### Validation and export
-
-| Command | Description |
-|---------|-------------|
-| `validate [--ci]` | Structural integrity check |
-| `drift check [--ci]` | Detect architectural drift |
-| `export --format {json,dot,markdown}` | Export the graph |
-
-All commands accept `--root DIR` (defaults to cwd or `PATHFINDER_ROOT` env var). The `--ci` flag exits with code 1 when issues are found.
-
-## Storage
-
-```
-.pathfinder/
-  config.yaml            # Project name, allowed component types
-  standards.yaml         # Architectural standards (optional)
-  components/            # One YAML file per component
-    payment/
-      _component.yaml
-      gateway/
-        _component.yaml
-  index.json             # Generated graph index (auto-rebuilt)
+## Conventions
+- All new services must use gRPC
+- No direct database access from the frontend container
 ```
 
-Component IDs use dot notation mapped to directory paths: `payment.gateway` → `components/payment/gateway/_component.yaml`. The `index.json` is always derived from YAML — safe to delete and regenerate.
+## Prerequisites
 
-## CI integration
-
-```yaml
-- name: Validate architecture
-  run: |
-    pip install -e .
-    pathfinder validate --ci
-    pathfinder drift check --ci
-```
+- **Docker** — for Structurizr Server and MCP server containers
+- **Python >= 3.12**
+- **Node.js** — for `npx mcp-remote` bridge to MCP server
 
 ## Development
 

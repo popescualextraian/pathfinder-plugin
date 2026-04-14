@@ -1,33 +1,35 @@
-import tempfile
-import shutil
-from pathlib import Path
+from unittest.mock import patch, MagicMock
 
-import pytest
+import yaml
 from click.testing import CliRunner
 
 from pathfinder.cli.main import cli
-from pathfinder.core.storage import init_project, save_component
 
 
-@pytest.fixture
-def test_dir():
-    d = Path(tempfile.mkdtemp(prefix="pathfinder-test-"))
-    init_project(d, "Test Project")
-    save_component(d, {"id": "system", "name": "System", "type": "system", "status": "active"})
-    save_component(d, {"id": "payment", "name": "Payment", "type": "module", "status": "active", "parent": "system",
-                        "dataFlows": [{"to": "ledger", "data": "Transaction"}]})
-    save_component(d, {"id": "ledger", "name": "Ledger", "type": "service", "status": "active", "parent": "system"})
-    yield d
-    shutil.rmtree(d, ignore_errors=True)
+def test_info_no_pathfinder_dir(tmp_path):
+    runner = CliRunner()
+    result = runner.invoke(cli, ["info", "--root", str(tmp_path)])
+    assert result.exit_code == 0
+    assert "No .pathfinder/" in result.output
 
 
-@pytest.fixture
-def runner():
-    return CliRunner()
+@patch("pathfinder.cli.info_cmd.subprocess.run")
+def test_info_shows_project_details(mock_run, tmp_path):
+    # Setup .pathfinder dir
+    pf_dir = tmp_path / ".pathfinder"
+    pf_dir.mkdir()
+    (pf_dir / "config.yaml").write_text(yaml.dump({"project_name": "My App"}))
+    (pf_dir / "workspace.dsl").write_text("workspace {}")
+    (pf_dir / "practices.md").write_text("# Practices")
 
+    mock = MagicMock()
+    mock.returncode = 1  # containers not found
+    mock.stdout = ""
+    mock_run.return_value = mock
 
-def test_shows_project_summary(runner, test_dir):
-    result = runner.invoke(cli, ["info", "--root", str(test_dir)])
-    assert "Test Project" in result.output
-    assert "3" in result.output
-    assert "1" in result.output
+    runner = CliRunner()
+    result = runner.invoke(cli, ["info", "--root", str(tmp_path)])
+    assert result.exit_code == 0
+    assert "My App" in result.output
+    assert "workspace.dsl" in result.output
+    assert "Practices: found" in result.output
