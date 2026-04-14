@@ -12,8 +12,8 @@ def _package_dir() -> Path:
 
 MCP_CONFIG = {
     "structurizr": {
-        "command": "npx",
-        "args": ["mcp-remote", "http://localhost:3000/mcp"],
+        "type": "sse",
+        "url": "http://localhost:3000/mcp",
     }
 }
 

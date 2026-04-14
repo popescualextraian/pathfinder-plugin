@@ -37,7 +37,7 @@ Flow 2: Design
 Requires **Python 3.12+** and **Docker**.
 
 ```bash
-pip install git+https://github.com/popescualextraian/pathfinder-plugin.git
+pip install --no-cache-dir --force-reinstall git+https://github.com/popescualextraian/pathfinder-plugin.git      
 ```
 
 ## Setting up a project

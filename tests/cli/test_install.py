@@ -44,7 +44,8 @@ def test_install_configures_mcp(tmp_path):
     settings = json.loads(settings_file.read_text())
     assert "mcpServers" in settings
     assert "structurizr" in settings["mcpServers"]
-    assert settings["mcpServers"]["structurizr"]["command"] == "npx"
+    assert settings["mcpServers"]["structurizr"]["type"] == "sse"
+    assert settings["mcpServers"]["structurizr"]["url"] == "http://localhost:3000/mcp"
 
 
 def test_install_preserves_existing_settings(tmp_path):

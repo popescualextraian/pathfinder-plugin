@@ -33,7 +33,17 @@
       "Bash(cp -r C:/WSAGNENG/path-finder/agents C:/WSAGNENG/path-finder/pathfinder/agents)",
       "Bash(.venv/Scripts/python.exe -m pip install -e \".[dev]\")",
       "Bash(\"C:/Program Files/Python313/python.exe\" -m pytest tests/cli/test_install.py -v --tb=short)",
-      "Bash(\"C:/Program Files/Python313/python.exe\" -m pytest tests/ -v --tb=short)"
+      "Bash(\"C:/Program Files/Python313/python.exe\" -m pytest tests/ -v --tb=short)",
+      "Bash(git remote:*)",
+      "Bash(.venv/Scripts/python.exe:*)",
+      "Bash(head -20 /c/WSAGNENG/path-finder/pathfinder/cli/*.py)",
+      "WebFetch(domain:pypi.org)",
+      "WebFetch(domain:docs.structurizr.com)",
+      "WebSearch",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(rm -rf /c/WSAGNENG/path-finder/.claude/skills)",
+      "Bash(rm -rf /c/WSAGNENG/path-finder/.claude/agents)",
+      "Bash(pathfinder:*)"
     ]
   }
 }
